@@ -52,6 +52,13 @@ const deleteMessageStmt = db.prepare(`
   WHERE chat_id = @chat_id AND message_id = @message_id
 `);
 
+// استخراج پیام‌های یک بازه زمانی خاص (مرتب‌شده بر اساس زمان)
+const getMessagesStmt = db.prepare(`
+  SELECT * FROM messages 
+  WHERE timestamp >= @startTime AND timestamp <= @endTime 
+  ORDER BY timestamp ASC
+`);
+
 // ۵. اکسپورت کردن یک تابع خالص (Pure Function) برای استفاده در فایل اصلی ربات
 export function saveMessage(record: MessageRecord): void {
 	// متد .run() برای کوئری‌هایی استفاده می‌شود که دیتایی برنمی‌گردانند (مثل INSERT)
@@ -68,4 +75,12 @@ export function updateMessage(
 
 export function deleteMessage(chat_id: number, message_id: number): void {
 	deleteMessageStmt.run({ chat_id, message_id });
+}
+
+export function getMessagesByTimeframe(
+	startTime: number,
+	endTime: number,
+): MessageRecord[] {
+	// متد .all() تمام رکوردهای منطبق را به صورت آرایه برمی‌گرداند
+	return getMessagesStmt.all({ startTime, endTime }) as MessageRecord[];
 }

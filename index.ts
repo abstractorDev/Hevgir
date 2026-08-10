@@ -1,4 +1,5 @@
 import { Bot } from 'grammy';
+import { startCronJobs } from './ai/scheduler.js';
 // توجه: پسوند .js الزامی است، تایپ‌اسکریپت خودش فایل database.ts را پیدا می‌کند
 import {
 	saveMessage,
@@ -56,6 +57,16 @@ async function notifyAdmin(
 			'[-] Failed to send log to admin. Is the bot blocked by admin?',
 			error,
 		);
+	}
+}
+
+// می‌توانید تابع notifyAdmin قبلی را تغییر دهید یا یک تابع ساده جدید بسازید:
+async function sendDirectLogToAdmin(text: string) {
+	console.log(text);
+	try {
+		await bot.api.sendMessage(adminId, text);
+	} catch (e) {
+		console.error('Error sending direct log:', e);
 	}
 }
 
@@ -176,3 +187,5 @@ bot.start({
 		);
 	},
 });
+
+startCronJobs(sendDirectLogToAdmin);
