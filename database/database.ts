@@ -6,7 +6,7 @@ export interface MessageRecord {
 	message_id: number;
 	text: string;
 	timestamp: number;
-	sender_name: string; // فیلد جدید اضافه شد
+	sender_name: string;
 }
 
 // ۲. راه‌اندازی و پیکربندی اولیه دیتابیس

@@ -1,5 +1,6 @@
 import { Bot } from 'grammy';
 import { startCronJobs } from './ai/scheduler.js';
+import { config } from './config.js';
 // توجه: پسوند .js الزامی است، تایپ‌اسکریپت خودش فایل database.ts را پیدا می‌کند
 import {
 	saveMessage,
@@ -10,9 +11,8 @@ import {
 
 // در یک پروژه واقعی، توکن را در فایل env. قرار می‌دهیم.
 // فعلاً برای محیط توسعه، توکن خود را اینجا جایگزین کنید.
-const botToken = '8971516156:AAGheWkwpSDibdxxteJW3Zhb4ANNep8KBME';
-const adminId = 5856995884;
-const bot = new Bot(botToken);
+const adminId = config.ADMIN_ID;
+const bot = new Bot(config.BOT_TOKEN);
 
 // تابع خالص (Pure Function) برای حذف ایموجی‌ها
 function stripEmojis(text: string): string {

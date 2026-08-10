@@ -11,7 +11,7 @@ const ai = new OpenAI({
 
 export async function summarizeDailyMessages(
 	messages: MessageRecord[],
-): Promise {
+): Promise<string | null> {
 	if (messages.length === 0) return null;
 
 	// تبدیل داده‌های دیتابیس به یک رشته ساختاریافته برای LLM
@@ -39,9 +39,14 @@ ${conversationContext}
 			temperature: 0.3, // دمای پایین برای جلوگیری از توهم (Hallucination) و حفظ دقت تحلیلی
 		});
 
-		return response.choices[0].message.content || null;
+		return response.choices[0]?.message.content || null;
 	} catch (error) {
 		console.error('[-] AI Processing Error:', error);
 		return null;
 	}
 }
+
+const aiName = new OpenAI({
+	apiKey: 'کلید_ای‌پی‌آی_شما_از_سایت_گروک',
+	baseURL: 'https://api.groq.com/openai/v1', // تغییر مسیر درخواست‌ها به سرورهای گروک
+});
