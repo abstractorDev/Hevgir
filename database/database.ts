@@ -39,8 +39,33 @@ const insertMessageStmt = db.prepare(`
   VALUES (@chat_id, @message_id, @text, @timestamp, @sender_name)
 `);
 
+// کوئری ویرایش پیام
+const updateMessageStmt = db.prepare(`
+  UPDATE messages 
+  SET text = @text 
+  WHERE chat_id = @chat_id AND message_id = @message_id
+`);
+
+// کوئری حذف پیام
+const deleteMessageStmt = db.prepare(`
+  DELETE FROM messages 
+  WHERE chat_id = @chat_id AND message_id = @message_id
+`);
+
 // ۵. اکسپورت کردن یک تابع خالص (Pure Function) برای استفاده در فایل اصلی ربات
 export function saveMessage(record: MessageRecord): void {
 	// متد .run() برای کوئری‌هایی استفاده می‌شود که دیتایی برنمی‌گردانند (مثل INSERT)
 	insertMessageStmt.run(record);
+}
+
+export function updateMessage(
+	chat_id: number,
+	message_id: number,
+	text: string,
+): void {
+	updateMessageStmt.run({ chat_id, message_id, text });
+}
+
+export function deleteMessage(chat_id: number, message_id: number): void {
+	deleteMessageStmt.run({ chat_id, message_id });
 }

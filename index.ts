@@ -1,6 +1,11 @@
 import { Bot } from 'grammy';
 // توجه: پسوند .js الزامی است، تایپ‌اسکریپت خودش فایل database.ts را پیدا می‌کند
-import { saveMessage, type MessageRecord } from './database/database.js';
+import {
+	saveMessage,
+	updateMessage,
+	deleteMessage,
+	type MessageRecord,
+} from './database/database.js';
 
 // در یک پروژه واقعی، توکن را در فایل env. قرار می‌دهیم.
 // فعلاً برای محیط توسعه، توکن خود را اینجا جایگزین کنید.
@@ -63,6 +68,44 @@ bot.on('message:text', (ctx) => {
 		// باعث Crash کردن کل پردازش (Process) ربات شود.
 		console.error(`[-] Failed to save message ${ctx.msg.message_id}:`, error);
 	}
+});
+// هندلر ویرایش پیام
+bot.on('edited_message:text', (ctx) => {
+	try {
+		const cleanText = stripEmojis(ctx.editedMessage.text);
+
+		// اگر پیام ویرایش‌شده خالی شد (مثلاً فقط ایموجی ماند)، کلاً آن را از DB پاک کن
+		if (!cleanText) {
+			deleteMessage(ctx.editedMessage.chat.id, ctx.editedMessage.message_id);
+			console.log(
+				`[*] Deleted (became empty): Message ${ctx.editedMessage.message_id}`,
+			);
+			return;
+		}
+
+		updateMessage(
+			ctx.editedMessage.chat.id,
+			ctx.editedMessage.message_id,
+			cleanText,
+		);
+		console.log(`[~] Updated: Message ${ctx.editedMessage.message_id}`);
+	} catch (error) {
+		console.error(
+			`[-] Failed to update message ${ctx.editedMessage?.message_id}:`,
+			error,
+		);
+	}
+});
+
+// هندلر حذف پیام توسط سرویس‌های تلگرام
+// در تلگرام وقتی پیامی در گروه پاک می‌شود، رویداد اختصاصی ندارد
+// اما فریم‌ورک‌های ربات از یک سرویس داخلی آپدیت تلگرام استفاده می‌کنند
+bot.on('message', (ctx, next) => {
+	// این یک میدلور (Middleware) ساده است.
+	// متأسفانه تلگرام برای پیام‌های حذف‌شده عادیِ کاربران (اگر ربات ادمین نباشد)
+	// رویدادی نمی‌فرستد. اما اگر ربات خودش یا ادمین‌ها پیامی را پاک کنند،
+	// این رویداد در آپدیت‌ها وجود دارد.
+	return next();
 });
 
 // هندل کردن رویدادهای غیرمنتظره در سطح ربات
