@@ -1,19 +1,14 @@
 import { bot } from './bot/index.js';
 import { config } from './config/env.js';
-// import { startCronJobs } from "./services/scheduler.js";
 
 async function bootstrap() {
 	console.log('Starting services...');
 
 	try {
-		// تزریق منوی دستورات به سرور تلگرام
 		await bot.api.setMyCommands([
-			// دستورات عمومی ربات
 			{ command: 'pause', description: 'توقف خواندن و ذخیره پیام‌ها' },
 			{ command: 'resume', description: 'از سرگیری خواندن پیام‌ها' },
 			{ command: 'status', description: 'مشاهده وضعیت فعلی ربات' },
-
-			// دستورات مختص مدیر کل
 			{
 				command: 'grant',
 				description: '[ادمین] اعطای دسترسی (ریپلای روی کاربر)',
@@ -31,21 +26,29 @@ async function bootstrap() {
 		console.error('[-] Failed to set command menu:', error);
 	}
 
-	bot.start({
-		onStart: async (botInfo) => {
-			console.log(`✅ Bot @${botInfo.username} initialized.`);
-			await bot.api.sendMessage(
-				config.ADMIN_ID,
-				`🟢 سیستم با معماری جدید با موفقیت راه‌اندازی شد. \n 🟢 ربات با قابلیت منوی گروه روشن شد.`,
-			);
-		},
-	});
+	// معماری دوگانه (Dual Architecture)
+	// متغیر محیطی VERCEL_ENV توسط خود پلتفرم Vercel تزریق می‌شود
+	const isServerless =
+		process.env.VERCEL_ENV === 'production' ||
+		process.env.NODE_ENV === 'production';
 
-	// راه‌اندازی زمان‌بندی هوش مصنوعی (فعلاً کامنت شده تا در فازهای بعدی تنظیم شود)
-	// startCronJobs();
+	if (!isServerless) {
+		// اجرا در محیط توسعه (Local)
+		bot.start({
+			onStart: async (botInfo) => {
+				console.log(
+					`✅ [Local Mode] Bot @${botInfo.username} running via Long Polling.`,
+				);
+			},
+		});
+	} else {
+		// اجرا در محیط ابری (Serverless)
+		console.log(
+			`✅ [Cloud Mode] Bot initialized. Waiting for Webhook requests...`,
+		);
+	}
 }
 
-// مدیریت خطاهای پیش‌بینی نشده در سطح پردازش نود
 process.on('unhandledRejection', (err) => {
 	console.error('Unhandled Rejection:', err);
 });
