@@ -28,14 +28,17 @@ async function bootstrap() {
 	// ==========================================
 	// وب‌سرور مصنوعی برای ارضای Health Check سرور ابری
 	// ==========================================
-	const port = process.env.PORT || 3000;
+	// متغیر PORT معمولاً از سمت سرور ابری به صورت استرینگ پاس داده می‌شود
+	const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
 	http
 		.createServer((_, res) => {
 			res.writeHead(200, { 'Content-Type': 'text/plain' });
 			res.end('Bot is running securely.');
 		})
-		.listen(port, () => {
-			console.log(`✅ Health check server listening on port ${port}`);
+		.listen(port, '0.0.0.0', () => {
+			// عبارت "0.0.0.0" در معماری داکر حیاتی است
+			console.log(`✅ Health check server listening on 0.0.0.0:${port}`);
 		});
 }
 

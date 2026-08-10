@@ -1,5 +1,5 @@
 # استفاده از نسخه سبک لینوکس و نود.جی‌اس
-FROM node:20-alpine
+FROM node:22-alpine
 
 # تنظیم پوشه کاری داخل کانتینر
 WORKDIR /app
