@@ -66,28 +66,108 @@ adminOnly.command('status', async (ctx) => {
 });
 
 // ==========================================
-// بخش دستورات کنترلی (Command Router)
+// بخش مدیریت سطوح دسترسی (Access Control)
 // ==========================================
 
-const isAuthorized = (userId: number | undefined) => {
-	return userId === config.ADMIN_ID;
+// بررسی مدیر کل (فقط شما)
+const isRootAdmin = (userId?: number) => userId === config.ADMIN_ID;
+
+// بررسی کاربران مجاز (شما + عموم + لیست ویژه)
+const isAuthorized = (userId?: number) => {
+	if (!userId) return false;
+	if (isRootAdmin(userId)) return true; // ادمین همیشه مجاز است
+	if (botState.isPublicAccess) return true; // اگر دسترسی عمومی باز باشد
+	return botState.authorizedUsers.has(userId); // اگر در لیست ویژه باشد
 };
 
-// فیلتر جدید: دیگر محدود به پی‌وی نیست، در هر چتی کار می‌کند
+const rootAdminOnly = bot.filter((ctx) => isRootAdmin(ctx.from?.id));
 const authorizedUsersOnly = bot.filter((ctx) => isAuthorized(ctx.from?.id));
 
-authorizedUsersOnly.command('pause', async (ctx) => {
-	if (!botState.isReading) {
-		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
+// ==========================================
+// دستورات مدیر کل (مدیریت دسترسی‌ها)
+// ==========================================
+
+rootAdminOnly.command('grantall', async (ctx) => {
+	botState.isPublicAccess = true;
+	await ctx.reply(
+		'🔓 دسترسی به دستورات ربات برای **تمامی کاربران** این گروه باز شد.',
+		{ parse_mode: 'Markdown' },
+	);
+});
+
+rootAdminOnly.command('revokeall', async (ctx) => {
+	botState.isPublicAccess = false;
+	await ctx.reply('🔒 دسترسی عمومی بسته شد. فقط کاربران تایید شده مجاز هستند.');
+});
+
+rootAdminOnly.command('grant', async (ctx) => {
+	const target = ctx.msg.reply_to_message?.from;
+	if (!target) {
+		return ctx.reply(
+			'⚠️ لطفاً این دستور را روی پیام کاربری که می‌خواهید دسترسی بگیرد، **ریپلای** کنید.',
+		);
 	}
+
+	const name = target.first_name || 'کاربر';
+	botState.authorizedUsers.set(target.id, name);
+	await ctx.reply(`✅ دسترسی استفاده از ربات به «${name}» داده شد.`);
+});
+
+rootAdminOnly.command('revoke', async (ctx) => {
+	const target = ctx.msg.reply_to_message?.from;
+	if (!target) {
+		return ctx.reply(
+			'⚠️ لطفاً این دستور را روی پیام کاربری که می‌خواهید دسترسی‌اش لغو شود، **ریپلای** کنید.',
+		);
+	}
+
+	if (botState.authorizedUsers.has(target.id)) {
+		botState.authorizedUsers.delete(target.id);
+		await ctx.reply(`❌ دسترسی «${target.first_name}» لغو شد.`);
+	} else {
+		await ctx.reply('این کاربر از قبل دسترسی نداشت.');
+	}
+});
+
+rootAdminOnly.command('accesslist', async (ctx) => {
+	if (botState.authorizedUsers.size === 0 && !botState.isPublicAccess) {
+		return ctx.reply('هیچ کاربری در لیست دسترسی ویژه وجود ندارد.');
+	}
+
+	let text = '📋 **لیست دسترسی‌های ربات:**\n\n';
+
+	if (botState.isPublicAccess) {
+		text += '🌐 **دسترسی عمومی:** فعال (همه می‌توانند استفاده کنند)\n\n';
+	} else {
+		text += '🌐 **دسترسی عمومی:** غیرفعال\n\n';
+	}
+
+	text += '👥 **لیست کاربران مجاز:**\n';
+	if (botState.authorizedUsers.size > 0) {
+		for (const [id, name] of botState.authorizedUsers.entries()) {
+			text += `🔸 ${name} (ID: \`${id}\`)\n`;
+		}
+	} else {
+		text += 'خالی';
+	}
+
+	await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+// ==========================================
+// دستورات عمومی (توقف و ادامه خوانش)
+// ==========================================
+
+authorizedUsersOnly.command('pause', async (ctx) => {
+	if (!botState.isReading)
+		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
 	botState.isReading = false;
 	await ctx.reply('⏸️ خواندن و ذخیره پیام‌های گروه متوقف شد.');
 });
 
 authorizedUsersOnly.command('resume', async (ctx) => {
-	if (botState.isReading) {
+	if (botState.isReading)
 		return ctx.reply('⚠️ ربات از قبل در حال خواندن پیام‌ها بود.');
-	}
 	botState.isReading = true;
 	await ctx.reply('▶️ خواندن و ذخیره پیام‌های گروه از سر گرفته شد.');
 });

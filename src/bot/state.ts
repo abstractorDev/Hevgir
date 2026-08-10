@@ -5,5 +5,10 @@
  * زیرا در محیط Serverless حافظه با هر درخواست پاک می‌شود.
  */
 export const botState = {
-	isReading: true, // ربات به‌طور پیش‌فرض روشن است
+	isReading: true, // وضعیت اصلی خواندن پیام‌ها
+	isPublicAccess: false, // آیا همه کاربران گروه دسترسی دارند؟
+
+	// استفاده از Map برای ذخیره آیدی عددی و نام کاربر
+	// Map<UserId, UserName>
+	authorizedUsers: new Map<number, string>(),
 };
