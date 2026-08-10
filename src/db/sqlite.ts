@@ -59,7 +59,16 @@ const getMessagesStmt = db.prepare(`
   ORDER BY timestamp ASC
 `);
 
-// ۵. اکسپورت کردن یک تابع خالص (Pure Function) برای استفاده در فایل اصلی ربات
+// ... کدهای اتصال به دیتابیس ...
+
+/**
+ * یک پیام جدید را در پایگاه داده ذخیره می‌کند.
+ * این عملیات Idempotent است؛ یعنی اگر پیام قبلاً وجود داشته باشد، خطا نمی‌دهد (INSERT OR IGNORE).
+ *
+ * @param {MessageRecord} record - شیء حاوی اطلاعات پیام
+ * @returns {void}
+ */
+
 export function saveMessage(record: MessageRecord): void {
 	// متد .run() برای کوئری‌هایی استفاده می‌شود که دیتایی برنمی‌گردانند (مثل INSERT)
 	insertMessageStmt.run(record);

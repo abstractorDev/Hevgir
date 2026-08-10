@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { getMessagesByTimeframe } from '../database/database.js';
+import { getMessagesByTimeframe } from '../src/db/sqlite.js';
 import { summarizeDailyMessages } from './ai.js';
 
 export function startCronJobs(notifyAdmin: (msg: string) => void) {
