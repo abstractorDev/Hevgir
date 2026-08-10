@@ -54,3 +54,21 @@ export async function deleteMessage(
 
 	if (error) throw new Error(`Delete failed: ${error.message}`);
 }
+
+/**
+ * استخراج پیام‌های یک بازه زمانی خاص (مرتب‌شده بر اساس زمان)
+ */
+export async function getMessagesByTimeframe(
+	startTime: number,
+	endTime: number,
+): Promise<any> {
+	const { data, error } = await supabase
+		.from('messages')
+		.select('*')
+		.gte('timestamp', startTime)
+		.lte('timestamp', endTime)
+		.order('timestamp', { ascending: true });
+
+	if (error) throw new Error(`Fetch failed: ${error.message}`);
+	return data || [];
+}

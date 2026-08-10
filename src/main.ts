@@ -1,6 +1,7 @@
 import { bot } from './bot/index.js';
 import { config } from './config/env.js';
-import http from 'http'; // ماژول بومی نود.جی‌اس
+import http from 'http';
+import { startCronJobs } from './services/scheduler.js';
 
 async function bootstrap() {
 	console.log('Starting services...');
@@ -40,6 +41,8 @@ async function bootstrap() {
 			// عبارت "0.0.0.0" در معماری داکر حیاتی است
 			console.log(`✅ Health check server listening on 0.0.0.0:${port}`);
 		});
+
+	startCronJobs();
 }
 
 process.on('unhandledRejection', (err) => {
