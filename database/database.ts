@@ -6,6 +6,7 @@ export interface MessageRecord {
 	message_id: number;
 	text: string;
 	timestamp: number;
+	sender_name: string; // فیلد جدید اضافه شد
 }
 
 // ۲. راه‌اندازی و پیکربندی اولیه دیتابیس
@@ -24,6 +25,7 @@ const createTableQuery = `
     message_id INTEGER NOT NULL,
     text TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
+    sender_name TEXT NOT NULL,
     PRIMARY KEY (chat_id, message_id)
   );
 `;
@@ -33,8 +35,8 @@ db.exec(createTableQuery);
 // استفاده از Prepared Statements به‌جای چسباندن مستقیم متغیرها (String Concatenation)،
 // از حملات SQL Injection جلوگیری می‌کند و سرعت اجرای کوئری را بالا می‌برد.
 const insertMessageStmt = db.prepare(`
-  INSERT OR IGNORE INTO messages (chat_id, message_id, text, timestamp)
-  VALUES (@chat_id, @message_id, @text, @timestamp)
+  INSERT OR IGNORE INTO messages (chat_id, message_id, text, timestamp, sender_name)
+  VALUES (@chat_id, @message_id, @text, @timestamp, @sender_name)
 `);
 
 // ۵. اکسپورت کردن یک تابع خالص (Pure Function) برای استفاده در فایل اصلی ربات
