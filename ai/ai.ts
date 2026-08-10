@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { MessageRecord } from '../src/db/sqlite.js';
+import type { MessageRecord } from '../src/db/supabase.js';
 
 // با این معماری، شما به OpenAI محدود نیستید.
 // اگر کلید API پلتفرم Groq (برای مدل‌های متن‌باز و رایگان Llama) را بدهید،

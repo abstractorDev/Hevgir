@@ -1,19 +1,24 @@
 import { Bot } from 'grammy';
 import { config } from '../config/env.js';
 import { stripEmojis } from '../utils/text.js';
-import { saveMessage, updateMessage, deleteMessage } from '../db/sqlite.js';
-import type { MessageRecord } from '../db/sqlite.js';
-import { botState } from './state.js';
+import { saveMessage, updateMessage, deleteMessage } from '../db/supabase.js';
+import type { MessageRecord } from '../db/supabase.js';
+import {
+	getIsReading,
+	setIsReading,
+	getIsPublicAccess,
+	setIsPublicAccess,
+	isUserInList,
+	addAuthorizedUser,
+	removeAuthorizedUser,
+	getAuthorizedUsersList,
+} from './state.js';
 
 export const bot = new Bot(config.BOT_TOKEN);
 
-/**
- * سیستم متمرکز ارسال لاگ به ادمین و ترمینال
- * @param {string} action - نوع عملیات (مثلاً "+ ذخیره")
- * @param {any} ctx - کانتکس تلگرام برای استخراج اطلاعات گروه
- * @param {number} messageId - شناسه پیام
- * @param {string} [extraInfo] - اطلاعات اضافه اختیاری
- */
+// ==========================================
+// بخش مانیتورینگ
+// ==========================================
 export async function notifyAdmin(
 	action: string,
 	ctx: any,
@@ -34,119 +39,64 @@ export async function notifyAdmin(
 }
 
 // ==========================================
-// بخش دستورات کنترلی ادمین (Admin Router)
-// ==========================================
-
-// ساخت یک ساب‌روتر (Sub-router) که فقط به پیام‌های پی‌وی ادمین واکنش نشان می‌دهد
-const adminOnly = bot.filter(
-	(ctx) => ctx.from?.id === config.ADMIN_ID && ctx.chat?.type === 'private',
-);
-
-adminOnly.command('pause', async (ctx) => {
-	if (!botState.isReading) {
-		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
-	}
-	botState.isReading = false;
-	await ctx.reply('⏸️ خواندن و ذخیره پیام‌های گروه متوقف شد.');
-});
-
-adminOnly.command('resume', async (ctx) => {
-	if (botState.isReading) {
-		return ctx.reply('⚠️ ربات از قبل در حال خواندن پیام‌ها بود.');
-	}
-	botState.isReading = true;
-	await ctx.reply('▶️ خواندن و ذخیره پیام‌های گروه از سر گرفته شد.');
-});
-
-adminOnly.command('status', async (ctx) => {
-	const statusStr = botState.isReading
-		? '🟢 فعال (در حال خواندن)'
-		: '🔴 متوقف (نمی‌خواند)';
-	await ctx.reply(`وضعیت فعلی ربات: ${statusStr}`);
-});
-
-// ==========================================
 // بخش مدیریت سطوح دسترسی (Access Control)
 // ==========================================
+const isRootAdmin = (userId?: number): boolean => userId === config.ADMIN_ID;
 
-// بررسی مدیر کل (فقط شما)
-const isRootAdmin = (userId?: number) => userId === config.ADMIN_ID;
-
-// بررسی کاربران مجاز (شما + عموم + لیست ویژه)
-const isAuthorized = (userId?: number) => {
+const checkAuthorization = async (userId?: number): Promise<any> => {
 	if (!userId) return false;
-	if (isRootAdmin(userId)) return true; // ادمین همیشه مجاز است
-	if (botState.isPublicAccess) return true; // اگر دسترسی عمومی باز باشد
-	return botState.authorizedUsers.has(userId); // اگر در لیست ویژه باشد
+	if (isRootAdmin(userId)) return true;
+
+	const isPublic = await getIsPublicAccess();
+	if (isPublic) return true;
+
+	return await isUserInList(userId);
 };
 
 const rootAdminOnly = bot.filter((ctx) => isRootAdmin(ctx.from?.id));
-const authorizedUsersOnly = bot.filter((ctx) => isAuthorized(ctx.from?.id));
+const authorizedUsersOnly = bot.filter(
+	async (ctx) => await checkAuthorization(ctx.from?.id),
+);
 
 // ==========================================
-// دستورات مدیر کل (مدیریت دسترسی‌ها)
+// دستورات مدیر کل
 // ==========================================
-
 rootAdminOnly.command('grantall', async (ctx) => {
-	botState.isPublicAccess = true;
-	await ctx.reply(
-		'🔓 دسترسی به دستورات ربات برای **تمامی کاربران** این گروه باز شد.',
-		{ parse_mode: 'Markdown' },
-	);
+	await setIsPublicAccess(true);
+	await ctx.reply('🔓 دسترسی عمومی باز شد.');
 });
 
 rootAdminOnly.command('revokeall', async (ctx) => {
-	botState.isPublicAccess = false;
-	await ctx.reply('🔒 دسترسی عمومی بسته شد. فقط کاربران تایید شده مجاز هستند.');
+	await setIsPublicAccess(false);
+	await ctx.reply('🔒 دسترسی عمومی بسته شد.');
 });
 
 rootAdminOnly.command('grant', async (ctx) => {
 	const target = ctx.msg.reply_to_message?.from;
-	if (!target) {
-		return ctx.reply(
-			'⚠️ لطفاً این دستور را روی پیام کاربری که می‌خواهید دسترسی بگیرد، **ریپلای** کنید.',
-		);
-	}
+	if (!target) return ctx.reply('⚠️ ریپلای الزامی است.');
 
-	const name = target.first_name || 'کاربر';
-	botState.authorizedUsers.set(target.id, name);
-	await ctx.reply(`✅ دسترسی استفاده از ربات به «${name}» داده شد.`);
+	await addAuthorizedUser(target.id, target.first_name || 'کاربر');
+	await ctx.reply(`✅ دسترسی به «${target.first_name}» داده شد.`);
 });
 
 rootAdminOnly.command('revoke', async (ctx) => {
 	const target = ctx.msg.reply_to_message?.from;
-	if (!target) {
-		return ctx.reply(
-			'⚠️ لطفاً این دستور را روی پیام کاربری که می‌خواهید دسترسی‌اش لغو شود، **ریپلای** کنید.',
-		);
-	}
+	if (!target) return ctx.reply('⚠️ ریپلای الزامی است.');
 
-	if (botState.authorizedUsers.has(target.id)) {
-		botState.authorizedUsers.delete(target.id);
-		await ctx.reply(`❌ دسترسی «${target.first_name}» لغو شد.`);
-	} else {
-		await ctx.reply('این کاربر از قبل دسترسی نداشت.');
-	}
+	await removeAuthorizedUser(target.id);
+	await ctx.reply(`❌ دسترسی «${target.first_name}» لغو شد.`);
 });
 
 rootAdminOnly.command('accesslist', async (ctx) => {
-	if (botState.authorizedUsers.size === 0 && !botState.isPublicAccess) {
-		return ctx.reply('هیچ کاربری در لیست دسترسی ویژه وجود ندارد.');
-	}
+	const isPublic = await getIsPublicAccess();
+	const users = await getAuthorizedUsersList();
 
 	let text = '📋 **لیست دسترسی‌های ربات:**\n\n';
-
-	if (botState.isPublicAccess) {
-		text += '🌐 **دسترسی عمومی:** فعال (همه می‌توانند استفاده کنند)\n\n';
-	} else {
-		text += '🌐 **دسترسی عمومی:** غیرفعال\n\n';
-	}
-
+	text += `🌐 **دسترسی عمومی:** ${isPublic ? 'فعال' : 'غیرفعال'}\n\n`;
 	text += '👥 **لیست کاربران مجاز:**\n';
-	if (botState.authorizedUsers.size > 0) {
-		for (const [id, name] of botState.authorizedUsers.entries()) {
-			text += `🔸 ${name} (ID: \`${id}\`)\n`;
-		}
+
+	if (users.length > 0) {
+		users.forEach((u) => (text += `🔸 ${u.name} (ID: \`${u.user_id}\`)\n`));
 	} else {
 		text += 'خالی';
 	}
@@ -155,34 +105,33 @@ rootAdminOnly.command('accesslist', async (ctx) => {
 });
 
 // ==========================================
-// دستورات عمومی (توقف و ادامه خوانش)
+// دستورات عمومی و گارد وضعیت
 // ==========================================
-
 authorizedUsersOnly.command('pause', async (ctx) => {
-	if (!botState.isReading)
-		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
-	botState.isReading = false;
-	await ctx.reply('⏸️ خواندن و ذخیره پیام‌های گروه متوقف شد.');
+	const isReading = await getIsReading();
+	if (!isReading) return ctx.reply('⚠️ ربات از قبل متوقف است.');
+	await setIsReading(false);
+	await ctx.reply('⏸️ خواندن پیام‌ها متوقف شد.');
 });
 
 authorizedUsersOnly.command('resume', async (ctx) => {
-	if (botState.isReading)
-		return ctx.reply('⚠️ ربات از قبل در حال خواندن پیام‌ها بود.');
-	botState.isReading = true;
-	await ctx.reply('▶️ خواندن و ذخیره پیام‌های گروه از سر گرفته شد.');
+	const isReading = await getIsReading();
+	if (isReading) return ctx.reply('⚠️ ربات در حال کار است.');
+	await setIsReading(true);
+	await ctx.reply('▶️ خواندن پیام‌ها آغاز شد.');
 });
 
 authorizedUsersOnly.command('status', async (ctx) => {
-	const statusStr = botState.isReading
-		? '🟢 فعال (در حال خواندن)'
-		: '🔴 متوقف (نمی‌خواند)';
-	await ctx.reply(`وضعیت فعلی ربات: ${statusStr}`);
+	const isReading = await getIsReading();
+	await ctx.reply(`وضعیت فعلی ربات: ${isReading ? '🟢 فعال' : '🔴 متوقف'}`);
 });
 
-// ثبت رویدادها
+// ==========================================
+// هندلرهای ذخیره و آپدیت پیام
+// ==========================================
 bot.on('message:text', async (ctx) => {
-	// گارد وضعیت: اگر ربات متوقف شده است، پیام را کلاً نادیده بگیر و خارج شو
-	if (!botState.isReading) return;
+	const isReading = await getIsReading();
+	if (!isReading) return;
 
 	const cleanText = stripEmojis(ctx.msg.text);
 	if (!cleanText) return;
@@ -199,35 +148,48 @@ bot.on('message:text', async (ctx) => {
 		sender_name: senderName,
 	};
 
-	saveMessage(record);
-	await notifyAdmin(
-		'+ ذخیره',
-		ctx,
-		record.message_id,
-		`توسط ${record.sender_name}`,
-	);
+	try {
+		await saveMessage(record);
+		await notifyAdmin(
+			'+ ذخیره',
+			ctx,
+			record.message_id,
+			`توسط ${record.sender_name}`,
+		);
+	} catch (err) {
+		console.error('[-] Failed to save message:', err);
+	}
 });
 
 bot.on('edited_message:text', async (ctx) => {
-	// گارد وضعیت برای ویرایش‌ها
-	if (!botState.isReading) return;
+	const isReading = await getIsReading();
+	if (!isReading) return;
 
 	const cleanText = stripEmojis(ctx.editedMessage.text);
-	if (!cleanText) {
-		deleteMessage(ctx.editedMessage.chat.id, ctx.editedMessage.message_id);
-		await notifyAdmin(
-			'- حذف (خالی شدن متنی)',
-			ctx,
+
+	try {
+		if (!cleanText) {
+			await deleteMessage(
+				ctx.editedMessage.chat.id,
+				ctx.editedMessage.message_id,
+			);
+			await notifyAdmin(
+				'- حذف (خالی شدن متنی)',
+				ctx,
+				ctx.editedMessage.message_id,
+			);
+			return;
+		}
+
+		await updateMessage(
+			ctx.editedMessage.chat.id,
 			ctx.editedMessage.message_id,
+			cleanText,
 		);
-		return;
+		await notifyAdmin('~ ویرایش', ctx, ctx.editedMessage.message_id);
+	} catch (err) {
+		console.error('[-] Failed to update message:', err);
 	}
-	updateMessage(
-		ctx.editedMessage.chat.id,
-		ctx.editedMessage.message_id,
-		cleanText,
-	);
-	await notifyAdmin('~ ویرایش', ctx, ctx.editedMessage.message_id);
 });
 
 bot.catch((err) => console.error('Global Error in bot:', err));

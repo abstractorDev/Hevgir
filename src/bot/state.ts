@@ -1,14 +1,66 @@
-/**
- * شیء مدیریت وضعیت (State) ربات.
- * نکته معماری: در حال حاضر این وضعیت در حافظه RAM (In-Memory) نگهداری می‌شود.
- * هنگام انتقال به معماری Serverless (فاز ۵)، این وضعیت باید به دیتابیس منتقل شود
- * زیرا در محیط Serverless حافظه با هر درخواست پاک می‌شود.
- */
-export const botState = {
-	isReading: true, // وضعیت اصلی خواندن پیام‌ها
-	isPublicAccess: false, // آیا همه کاربران گروه دسترسی دارند؟
+import { supabase } from '../db/supabase.js';
 
-	// استفاده از Map برای ذخیره آیدی عددی و نام کاربر
-	// Map<UserId, UserName>
-	authorizedUsers: new Map<number, string>(),
-};
+export async function getIsReading(): Promise<boolean> {
+	const { data, error } = await supabase
+		.from('bot_settings')
+		.select('is_reading')
+		.eq('id', true)
+		.single();
+	if (error) throw error;
+	// در صورتی که دیتابیس خالی باشد، پیش‌فرض true برمی‌گرداند
+	return data?.is_reading ?? true;
+}
+
+export async function setIsReading(status: boolean): Promise<void> {
+	await supabase
+		.from('bot_settings')
+		.update({ is_reading: status })
+		.eq('id', true);
+}
+
+export async function getIsPublicAccess(): Promise<boolean> {
+	const { data, error } = await supabase
+		.from('bot_settings')
+		.select('is_public_access')
+		.eq('id', true)
+		.single();
+	if (error) throw error;
+	return data?.is_public_access ?? false;
+}
+
+export async function setIsPublicAccess(status: boolean): Promise<void> {
+	await supabase
+		.from('bot_settings')
+		.update({ is_public_access: status })
+		.eq('id', true);
+}
+
+export async function getAuthorizedUsersList(): Promise<
+	{ user_id: number; name: string }[]
+> {
+	const { data, error } = await supabase.from('authorized_users').select('*');
+	if (error) throw error;
+	return data || [];
+}
+
+export async function isUserInList(userId: number): Promise<boolean> {
+	// استفاده از maybeSingle برای جلوگیری از خطا در صورت پیدا نشدن کاربر
+	const { data, error } = await supabase
+		.from('authorized_users')
+		.select('user_id')
+		.eq('user_id', userId)
+		.maybeSingle();
+	if (error) throw error;
+	return data !== null;
+}
+
+export async function addAuthorizedUser(
+	userId: number,
+	name: string,
+): Promise<void> {
+	await supabase.from('authorized_users').upsert({ user_id: userId, name });
+}
+
+export async function removeAuthorizedUser(userId: number): Promise<void> {
+	await supabase.from('authorized_users').delete().match({ user_id: userId });
+}

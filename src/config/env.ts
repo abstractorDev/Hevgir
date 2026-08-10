@@ -12,8 +12,16 @@ if (!process.env.ADMIN_ID) {
 	throw new Error('CRITICAL: ADMIN_ID is missing in .env file');
 }
 
+if (!process.env.SUPABASE_URL)
+	throw new Error('CRITICAL: SUPABASE_URL is missing');
+
+if (!process.env.SUPABASE_KEY)
+	throw new Error('CRITICAL: SUPABASE_KEY is missing');
+
 export const config = {
 	BOT_TOKEN: process.env.BOT_TOKEN,
 	ADMIN_ID: parseInt(process.env.ADMIN_ID, 10),
 	// AI_API_KEY: process.env.AI_API_KEY,
+	SUPABASE_URL: process.env.SUPABASE_URL,
+	SUPABASE_KEY: process.env.SUPABASE_KEY,
 };
