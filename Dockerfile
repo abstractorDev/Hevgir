@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # کپی کردن فایل‌های وابستگی برای نصب
-COPY package*.json ./
+COPY package.json ./
 
 # نصب پکیج‌ها (اجرای npm install)
 RUN npm install
