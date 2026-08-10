@@ -3,6 +3,7 @@ import { config } from '../config/env.js';
 import { stripEmojis } from '../utils/text.js';
 import { saveMessage, updateMessage, deleteMessage } from '../db/sqlite.js';
 import type { MessageRecord } from '../db/sqlite.js';
+import { botState } from './state.js';
 
 export const bot = new Bot(config.BOT_TOKEN);
 
@@ -32,8 +33,43 @@ export async function notifyAdmin(
 	}
 }
 
+// ==========================================
+// بخش دستورات کنترلی ادمین (Admin Router)
+// ==========================================
+
+// ساخت یک ساب‌روتر (Sub-router) که فقط به پیام‌های پی‌وی ادمین واکنش نشان می‌دهد
+const adminOnly = bot.filter(
+	(ctx) => ctx.from?.id === config.ADMIN_ID && ctx.chat?.type === 'private',
+);
+
+adminOnly.command('pause', async (ctx) => {
+	if (!botState.isReading) {
+		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
+	}
+	botState.isReading = false;
+	await ctx.reply('⏸️ خواندن و ذخیره پیام‌های گروه متوقف شد.');
+});
+
+adminOnly.command('resume', async (ctx) => {
+	if (botState.isReading) {
+		return ctx.reply('⚠️ ربات از قبل در حال خواندن پیام‌ها بود.');
+	}
+	botState.isReading = true;
+	await ctx.reply('▶️ خواندن و ذخیره پیام‌های گروه از سر گرفته شد.');
+});
+
+adminOnly.command('status', async (ctx) => {
+	const statusStr = botState.isReading
+		? '🟢 فعال (در حال خواندن)'
+		: '🔴 متوقف (نمی‌خواند)';
+	await ctx.reply(`وضعیت فعلی ربات: ${statusStr}`);
+});
+
 // ثبت رویدادها
 bot.on('message:text', async (ctx) => {
+	// گارد وضعیت: اگر ربات متوقف شده است، پیام را کلاً نادیده بگیر و خارج شو
+	if (!botState.isReading) return;
+
 	const cleanText = stripEmojis(ctx.msg.text);
 	if (!cleanText) return;
 
@@ -59,6 +95,9 @@ bot.on('message:text', async (ctx) => {
 });
 
 bot.on('edited_message:text', async (ctx) => {
+	// گارد وضعیت برای ویرایش‌ها
+	if (!botState.isReading) return;
+
 	const cleanText = stripEmojis(ctx.editedMessage.text);
 	if (!cleanText) {
 		deleteMessage(ctx.editedMessage.chat.id, ctx.editedMessage.message_id);
