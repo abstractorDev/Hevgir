@@ -65,6 +65,40 @@ adminOnly.command('status', async (ctx) => {
 	await ctx.reply(`وضعیت فعلی ربات: ${statusStr}`);
 });
 
+// ==========================================
+// بخش دستورات کنترلی (Command Router)
+// ==========================================
+
+const isAuthorized = (userId: number | undefined) => {
+	return userId === config.ADMIN_ID;
+};
+
+// فیلتر جدید: دیگر محدود به پی‌وی نیست، در هر چتی کار می‌کند
+const authorizedUsersOnly = bot.filter((ctx) => isAuthorized(ctx.from?.id));
+
+authorizedUsersOnly.command('pause', async (ctx) => {
+	if (!botState.isReading) {
+		return ctx.reply('⚠️ ربات از قبل در حالت توقف قرار داشت.');
+	}
+	botState.isReading = false;
+	await ctx.reply('⏸️ خواندن و ذخیره پیام‌های گروه متوقف شد.');
+});
+
+authorizedUsersOnly.command('resume', async (ctx) => {
+	if (botState.isReading) {
+		return ctx.reply('⚠️ ربات از قبل در حال خواندن پیام‌ها بود.');
+	}
+	botState.isReading = true;
+	await ctx.reply('▶️ خواندن و ذخیره پیام‌های گروه از سر گرفته شد.');
+});
+
+authorizedUsersOnly.command('status', async (ctx) => {
+	const statusStr = botState.isReading
+		? '🟢 فعال (در حال خواندن)'
+		: '🔴 متوقف (نمی‌خواند)';
+	await ctx.reply(`وضعیت فعلی ربات: ${statusStr}`);
+});
+
 // ثبت رویدادها
 bot.on('message:text', async (ctx) => {
 	// گارد وضعیت: اگر ربات متوقف شده است، پیام را کلاً نادیده بگیر و خارج شو
