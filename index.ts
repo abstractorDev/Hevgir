@@ -10,6 +10,7 @@ import {
 // در یک پروژه واقعی، توکن را در فایل env. قرار می‌دهیم.
 // فعلاً برای محیط توسعه، توکن خود را اینجا جایگزین کنید.
 const botToken = '8971516156:AAGheWkwpSDibdxxteJW3Zhb4ANNep8KBME';
+const adminId = 5856995884;
 const bot = new Bot(botToken);
 
 // تابع خالص (Pure Function) برای حذف ایموجی‌ها
@@ -27,9 +28,40 @@ function stripEmojis(text: string): string {
 	);
 }
 
+// سیستم متمرکز مانیتورینگ
+async function notifyAdmin(
+	action: string,
+	ctx: any,
+	messageId: number,
+	extraInfo: string = '',
+) {
+	// استخراج نام گروه (در صورت وجود)
+	const chatTitle =
+		ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'پی‌وی/ناشناس';
+
+	// قالب‌بندی ساعت (مثلاً 14:35:00)
+	const timeString = new Date().toLocaleTimeString('fa-IR', { hour12: false });
+
+	// ساختار نهایی لاگ
+	const logMessage = `[${timeString}] [${action}] در گروه "${chatTitle}": پیام ${messageId} ${extraInfo}`;
+
+	// ۱. چاپ در ترمینال
+	console.log(logMessage);
+
+	// ۲. ارسال به پی‌وی ادمین
+	try {
+		await bot.api.sendMessage(adminId, logMessage);
+	} catch (error) {
+		console.error(
+			'[-] Failed to send log to admin. Is the bot blocked by admin?',
+			error,
+		);
+	}
+}
+
 // استفاده از فیلتر "message:text" تضمین می‌کند که این تابع فقط برای پیام‌های متنی اجرا می‌شود.
 // در نتیجه، تایپ‌اسکریپت می‌فهمد که فیلد ctx.msg.text قطعاً وجود دارد (undefined نیست).
-bot.on('message:text', (ctx) => {
+bot.on('message:text', async (ctx) => {
 	try {
 		const rawText = ctx.msg.text;
 		const cleanText = stripEmojis(rawText);
@@ -47,7 +79,7 @@ bot.on('message:text', (ctx) => {
 		const record: MessageRecord = {
 			chat_id: ctx.msg.chat.id,
 			message_id: ctx.msg.message_id,
-			text: cleanText, // متن پاک‌سازی‌شده
+			text: cleanText,
 			timestamp: ctx.msg.date,
 			sender_name: senderName,
 		};
@@ -62,6 +94,14 @@ bot.on('message:text', (ctx) => {
 		console.log(
 			`[+] Saved: Message ${record.message_id} from Chat ${record.chat_id}`,
 		);
+
+		// فراخوانی سیستم لاگینگ
+		await notifyAdmin(
+			'+ ذخیره',
+			ctx,
+			record.message_id,
+			`توسط ${record.sender_name}`,
+		);
 	} catch (error) {
 		// اصل مهم سیستم‌های مبتنی بر رویداد (Event-driven):
 		// هرگز اجازه ندهید خطای پردازش یک پیام (مثلاً پر شدن دیسک یا خطای دیتابیس)
@@ -70,7 +110,7 @@ bot.on('message:text', (ctx) => {
 	}
 });
 // هندلر ویرایش پیام
-bot.on('edited_message:text', (ctx) => {
+bot.on('edited_message:text', async (ctx) => {
 	try {
 		const cleanText = stripEmojis(ctx.editedMessage.text);
 
@@ -80,6 +120,13 @@ bot.on('edited_message:text', (ctx) => {
 			console.log(
 				`[*] Deleted (became empty): Message ${ctx.editedMessage.message_id}`,
 			);
+
+			await notifyAdmin(
+				'- حذف (خالی شدن متنی)',
+				ctx,
+				ctx.editedMessage.message_id,
+			);
+
 			return;
 		}
 
@@ -89,6 +136,8 @@ bot.on('edited_message:text', (ctx) => {
 			cleanText,
 		);
 		console.log(`[~] Updated: Message ${ctx.editedMessage.message_id}`);
+
+		await notifyAdmin('~ ویرایش', ctx, ctx.editedMessage.message_id);
 	} catch (error) {
 		console.error(
 			`[-] Failed to update message ${ctx.editedMessage?.message_id}:`,
@@ -115,9 +164,15 @@ bot.catch((err) => {
 
 // اجرای ربات
 bot.start({
-	onStart: (botInfo) => {
+	onStart: async (botInfo) => {
 		console.log(
 			`Bot @${botInfo.username} is running and connected to SQLite...`,
+		);
+
+		// ارسال یک پیام به ادمین برای تایید روشن شدن ربات
+		await bot.api.sendMessage(
+			adminId,
+			`🟢 ربات @${botInfo.username} با موفقیت روشن شد و به دیتابیس متصل است.`,
 		);
 	},
 });
