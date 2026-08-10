@@ -26,27 +26,17 @@ async function bootstrap() {
 		console.error('[-] Failed to set command menu:', error);
 	}
 
-	// معماری دوگانه (Dual Architecture)
-	// متغیر محیطی VERCEL_ENV توسط خود پلتفرم Vercel تزریق می‌شود
-	const isServerless =
-		process.env.VERCEL_ENV === 'production' ||
-		process.env.NODE_ENV === 'production';
-
-	if (!isServerless) {
-		// اجرا در محیط توسعه (Local)
-		bot.start({
-			onStart: async (botInfo) => {
-				console.log(
-					`✅ [Local Mode] Bot @${botInfo.username} running via Long Polling.`,
-				);
-			},
-		});
-	} else {
-		// اجرا در محیط ابری (Serverless)
-		console.log(
-			`✅ [Cloud Mode] Bot initialized. Waiting for Webhook requests...`,
-		);
-	}
+	// اجرای مستقیم و بی‌قیدوشرط ربات
+	bot.start({
+		onStart: async (botInfo) => {
+			console.log(`✅ Bot @${botInfo.username} running via Long Polling.`);
+			// پیام اطلاع‌رسانی به ادمین هنگام روشن شدن کانتینر
+			await bot.api.sendMessage(
+				config.ADMIN_ID,
+				`🟢 سیستم روی کانتینر ابری با موفقیت مستقر شد.`,
+			);
+		},
+	});
 }
 
 process.on('unhandledRejection', (err) => {
