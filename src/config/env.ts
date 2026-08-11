@@ -3,7 +3,11 @@ import dotenv from 'dotenv';
 // خواندن فایل .env و انتقال آن به process.env
 dotenv.config();
 
-if (!process.env.AI_API_KEY) throw new Error('CRITICAL: AI_API_KEY is missing');
+// if (!process.env.AI_API_KEY) throw new Error('CRITICAL: AI_API_KEY is missing');
+if (!process.env.GROQ_API_KEY)
+	throw new Error('CRITICAL: GROQ_API_KEY is missing');
+if (!process.env.OPENAI_API_KEY)
+	throw new Error('CRITICAL: OPENAI_API_KEY is missing');
 
 // اعتبارسنجی (Fail-Fast): اگر توکن نباشد، برنامه همان ابتدا متوقف می‌شود
 if (!process.env.BOT_TOKEN) {
@@ -23,7 +27,9 @@ if (!process.env.SUPABASE_KEY)
 export const config = {
 	BOT_TOKEN: process.env.BOT_TOKEN,
 	ADMIN_ID: parseInt(process.env.ADMIN_ID, 10),
-	AI_API_KEY: process.env.AI_API_KEY,
 	SUPABASE_URL: process.env.SUPABASE_URL,
 	SUPABASE_KEY: process.env.SUPABASE_KEY,
+	// AI_API_KEY: process.env.AI_API_KEY,
+	GROQ_API_KEY: process.env.GROQ_API_KEY,
+	OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 };

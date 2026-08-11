@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { getMessagesByTimeframe } from '../db/supabase.js';
-import { summarizeDailyMessages } from './ai.js';
+import { runDailyAnalysisPipeline } from './ai.js';
 import { bot } from '../bot/index.js';
 import { config } from '../config/env.js';
 
@@ -23,25 +23,25 @@ export function startCronJobs() {
 
 			await bot.api.sendMessage(
 				config.ADMIN_ID,
-				`🔄 در حال تحلیل ${messages.length} پیام از ۲۴ ساعت گذشته...`,
+				`🔄 آغاز پردازش عمیق ${messages.length} پیام با معماری Hybrid AI...`,
 			);
 
-			const summary = await summarizeDailyMessages(messages);
+			const finalReport = await runDailyAnalysisPipeline(messages);
 
-			if (summary) {
+			if (finalReport) {
+				// به دلیل طولانی بودن احتمالی گزارش، آن را ارسال می‌کنیم
 				await bot.api.sendMessage(
 					config.ADMIN_ID,
-					`📊 **خلاصه روزانه:**\n\n${summary}`,
+					`🧠 **تحلیل و پیشنهاد امروز:**\n\n${finalReport}`,
 					{ parse_mode: 'Markdown' },
-				);
-			} else {
-				await bot.api.sendMessage(
-					config.ADMIN_ID,
-					'❌ خطا در تولید خلاصه روزانه توسط هوش مصنوعی.',
 				);
 			}
 		} catch (error) {
 			console.error('[-] Cron Job Error:', error);
+			await bot.api.sendMessage(
+				config.ADMIN_ID,
+				'❌ خطای سیستمی در اجرای پایپ‌لاین هوش مصنوعی.',
+			);
 		}
 	});
 

@@ -2,48 +2,128 @@ import OpenAI from 'openai';
 import { config } from '../config/env.js';
 import type { MessageRecord } from '../db/supabase.js';
 
-// اتصال به Groq با استفاده از استاندارد OpenAI
-const ai = new OpenAI({
-	apiKey: config.AI_API_KEY,
-	baseURL: 'https://api.groq.com/openai/v1', // برای استفاده از OpenAI این خط را پاک کنید
+// کلاینت اول: برای کارهای سنگین و سریع (مرحله Map)
+const groq = new OpenAI({
+	apiKey: config.GROQ_API_KEY,
+	baseURL: 'https://api.groq.com/openai/v1',
 });
 
-/**
- * تحلیل و خلاصه‌سازی مکالمات با استفاده از مدل زبانی
- */
-export async function summarizeDailyMessages(
-	messages: MessageRecord[],
-): Promise<any> {
-	if (messages.length === 0) return null;
+// کلاینت دوم: برای استدلال عمیق و نتیجه‌گیری (مرحله Reduce)
+const openai = new OpenAI({
+	apiKey: config.OPENAI_API_KEY,
+});
 
-	// تبدیل آرایه پیام‌ها به یک متن ساختاریافته برای مدل
-	const conversationContext = messages
-		.map((msg) => `[${msg.sender_name}]: ${msg.text}`)
+// تابع کمکی برای ایجاد وقفه و جلوگیری از Rate Limit
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * مرحله Map: تولید خلاصه‌های میانی با Groq
+ */
+async function generateIntermediateSummary(
+	messages: MessageRecord[],
+): Promise<string | null> {
+	const context = messages
+		.map((m) => `[${m.sender_name}]: ${m.text}`)
 		.join('\n');
 
 	const systemPrompt = `
-شما یک تحلیل‌گر سیستماتیک هستید. وظیفه شما بررسی مکالمات یک گروه فنی و استخراج مفاهیم کلیدی است.
-از سوگیری پرهیز کنید. فقط بر اساس منطق و داده‌های موجود در متن عمل کنید.
-
-خروجی شما باید شامل سه بخش باشد:
-۱. موضوعات اصلی بحث (خلاصه و دقیق)
-۲. کلیدواژه‌های تخصصی مطرح‌شده
-۳. پرسش‌های مهم یا چالش‌هایی که بی‌پاسخ ماندند
-
-متن مکالمات:
-${conversationContext}
+شما یک تحلیل‌گر داده هستید. این بخشی از پیام‌های یک گروه است.
+بدون قضاوت، فقط موارد زیر را استخراج کنید:
+۱. موضوعات اصلی بحث
+۲. مشکلات یا گیرهای فنی/فکری اعضا
+۳. چارچوب و حال‌وهوای کلی بحث
+پاسخ باید بسیار فشرده و به صورت بولت‌پوینت باشد.
   `.trim();
 
 	try {
-		const response = await ai.chat.completions.create({
-			model: 'llama3-70b-8192', // مدل متن‌باز و قدرتمند شرکت متا روی سخت‌افزار Groq
-			messages: [{ role: 'system', content: systemPrompt }],
-			temperature: 0.2, // دمای پایین برای حفظ دقت تحلیلی و جلوگیری از توهم (Hallucination)
+		const response = await groq.chat.completions.create({
+			model: 'llama3-70b-8192',
+			messages: [
+				{ role: 'system', content: systemPrompt },
+				{ role: 'user', content: context },
+			],
+			temperature: 0.2,
 		});
-
 		return response.choices[0]?.message?.content || null;
 	} catch (error) {
-		console.error('[-] AI Processing Error:', error);
+		console.error('[-] Groq Map Error:', error);
 		return null;
 	}
+}
+
+/**
+ * مرحله Reduce: تقطیر نهایی و پیشنهاد مقاله با OpenAI
+ */
+async function generateFinalReportAndRecommendation(
+	intermediateSummaries: string[],
+): Promise<string | null> {
+	const combinedSummaries = intermediateSummaries.join('\n\n---\n\n');
+
+	const systemPrompt = `
+شما یک منتور ارشد مهندسی نرم‌افزار و متفکر سیستم‌ها هستید.
+در ادامه، خلاصه‌هایی از مکالمات یک روزِ گروه مهندسی آمده است.
+وظایف شما:
+۱. تقطیر (Distillation): یک جمع‌بندی یک‌پارچه از کل دغدغه‌ها و چارچوب فکری امروز گروه ارائه دهید.
+۲. آسیب‌شناسی: آیا در طرز فکر (Mindset) یا رویکرد حل مسئله آن‌ها ضعف یا سوگیری خاصی وجود دارد؟
+۳. پیشنهاد (Recommendation): بر اساس تحلیل بالا، دقیقاً یک مقاله معتبر، کتاب مهندسی، یا مفهوم بنیادین علوم کامپیوتر/فلسفه برای مطالعه پیشنهاد دهید که به اصلاح طرز فکر یا رفع چالش آن‌ها کمک کند. دلیل انتخاب این منبع را شرح دهید.
+  `.trim();
+
+	try {
+		const response = await openai.chat.completions.create({
+			model: 'gpt-4o-mini', // بسیار مقرون‌به‌صرفه و دقیق برای این حجم داده
+			messages: [
+				{ role: 'system', content: systemPrompt },
+				{ role: 'user', content: combinedSummaries },
+			],
+			temperature: 0.4,
+		});
+		return response.choices[0]?.message?.content || null;
+	} catch (error) {
+		console.error('[-] OpenAI Reduce Error:', error);
+		return null;
+	}
+}
+
+/**
+ * ارکستراتور اصلی پایپ‌لاین (الگوریتم Map-Reduce)
+ */
+export async function runDailyAnalysisPipeline(
+	messages: MessageRecord[],
+): Promise<string | null> {
+	if (messages.length === 0) return null;
+
+	const CHUNK_SIZE = 150; // هر بلاک شامل 150 پیام
+	const intermediateSummaries: string[] = [];
+
+	console.log(
+		`[AI Pipeline] Starting MAP phase for ${messages.length} messages...`,
+	);
+
+	// شکستن پیام‌ها به قطعات (Chunking) و اجرای ترتیبی (Sequential) برای مدیریت Rate Limit
+	for (let i = 0; i < messages.length; i += CHUNK_SIZE) {
+		const chunk = messages.slice(i, i + CHUNK_SIZE);
+		console.log(`[AI Pipeline] Processing chunk ${i / CHUNK_SIZE + 1}...`);
+
+		const summary = await generateIntermediateSummary(chunk);
+		if (summary) {
+			intermediateSummaries.push(summary);
+		}
+
+		// وقفه 3 ثانیه‌ای بین هر درخواست به Groq
+		if (i + CHUNK_SIZE < messages.length) {
+			await sleep(3000);
+		}
+	}
+
+	if (intermediateSummaries.length === 0) {
+		throw new Error('Map phase failed to generate any summaries.');
+	}
+
+	console.log(`[AI Pipeline] Starting REDUCE phase with OpenAI...`);
+	// ارسال تمام خلاصه‌های میانی به OpenAI برای نتیجه‌گیری و پیشنهاد
+	const finalReport = await generateFinalReportAndRecommendation(
+		intermediateSummaries,
+	);
+
+	return finalReport;
 }
