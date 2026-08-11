@@ -84,3 +84,11 @@ export async function ignoreUser(userId: number, name: string): Promise<void> {
 export async function unignoreUser(userId: number): Promise<void> {
 	await supabase.from('ignored_users').delete().match({ user_id: userId });
 }
+
+export async function getIgnoredUsersList(): Promise<
+	{ user_id: number; name: string }[]
+> {
+	const { data, error } = await supabase.from('ignored_users').select('*');
+	if (error) throw error;
+	return data || [];
+}

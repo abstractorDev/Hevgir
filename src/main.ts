@@ -34,6 +34,9 @@ async function bootstrap() {
 				command: 'stats',
 				description: '[ادمین] مشاهده تعداد پیام‌های کاربر (ریپلای)',
 			},
+			{ command: 'start', description: 'معرفی ربات' },
+			{ command: 'help', description: 'راهنمای تمام دستورات' },
+			{ command: 'users', description: 'وضعیت و آمار پیام‌های کاربران' },
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {

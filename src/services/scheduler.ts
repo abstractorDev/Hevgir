@@ -7,7 +7,8 @@ import { config } from '../config/env.js';
 export function startCronJobs() {
 	// اجرای کرون‌جاب هر روز ساعت ۲۳:۵۹
 	// برای تست می‌توانید از "* * * * *" (هر دقیقه) استفاده کنید
-	cron.schedule('59 23 * * *', async () => {
+	// cron.schedule('59 23 * * *', async () => {
+	cron.schedule('10 23 * * *', async () => {
 		console.log('⏳ Starting daily AI summarization...');
 
 		try {

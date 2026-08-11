@@ -6,20 +6,22 @@ import {
 	updateMessage,
 	deleteMessage,
 	getUserMessageCount,
+	getTopUsers,
 } from '../db/supabase.js';
 import type { MessageRecord } from '../db/supabase.js';
 import {
-	getIsReading,
-	setIsReading,
+	getAuthorizedUsersList,
+	getIgnoredUsersList,
 	getIsPublicAccess,
+	getIsReading,
 	setIsPublicAccess,
-	isUserInList,
+	setIsReading,
 	addAuthorizedUser,
 	removeAuthorizedUser,
-	getAuthorizedUsersList,
-	isUserIgnored,
 	ignoreUser,
 	unignoreUser,
+	isUserIgnored,
+	isUserInList,
 } from './state.js';
 
 export const bot = new Bot(config.BOT_TOKEN);
@@ -65,6 +67,90 @@ const rootAdminOnly = bot.filter((ctx) => isRootAdmin(ctx.from?.id));
 const authorizedUsersOnly = bot.filter(
 	async (ctx) => await checkAuthorization(ctx.from?.id),
 );
+
+// ==========================================
+// دستورات عمومی (Public Commands)
+// ==========================================
+
+bot.command('start', async (ctx) => {
+	const intro = `👋 **سلام! من Hevgir (هەڤگر) هستم.**\n\nمن یک دستیار هوشمند برای تحلیل و استخراج کانتکس مکالمات این گروه هستم. من پیام‌ها را می‌خوانم، مفاهیم را تقطیر می‌کنم و در پایان روز با استفاده از مدل‌های زبانی، برای ارتقای سطح فکری گروه پیشنهاداتی ارائه می‌دهم.\n\nبرای دیدن لیست امکانات من، از دستور /help استفاده کنید.`;
+	await ctx.reply(intro, { parse_mode: 'Markdown' });
+});
+
+bot.command('help', async (ctx) => {
+	const helpText =
+		`📚 **راهنمای دستورات ربات:**\n\n` +
+		`**عمومی (همه کاربران):**\n` +
+		`🔹 /start - معرفی ربات\n` +
+		`🔹 /help - راهنمای دستورات\n` +
+		`🔹 /users - مشاهده وضعیت و آمار کاربران گروه\n` +
+		`🔹 /stats - آمار پیام‌ها (روی یک پیام ریپلای کنید یا خالی بفرستید)\n` +
+		`🔹 /status - مشاهده وضعیت فعلی موتور خوانش\n\n` +
+		`**کاربران مجاز:**\n` +
+		`🔹 /pause - توقف خواندن پیام‌ها\n` +
+		`🔹 /resume - از سرگیری خواندن پیام‌ها\n\n` +
+		`**مدیر سیستم:**\n` +
+		`🔹 /grant, /revoke, /grantall, /revokeall, /accesslist\n` +
+		`🔹 /ignore, /unignore, /del\n`;
+
+	await ctx.reply(helpText, { parse_mode: 'Markdown' });
+});
+
+bot.command('status', async (ctx) => {
+	const isReading = await getIsReading();
+	await ctx.reply(
+		`وضعیت فعلی ربات: ${isReading ? '🟢 فعال (در حال پردازش پیام‌ها)' : '🔴 متوقف'}`,
+	);
+});
+
+bot.command('stats', async (ctx) => {
+	// اگر ریپلای نکرده بود، آمار خود شخص را نشان می‌دهد
+	const target = ctx.msg.reply_to_message?.from || ctx.msg.from;
+	if (!target) return;
+
+	const senderName = target.last_name
+		? `${target.first_name} ${target.last_name}`
+		: target.first_name || 'Unknown';
+
+	try {
+		const count = await getUserMessageCount(senderName);
+		await ctx.reply(
+			`📊 کاربر «${senderName}» تا کنون **${count}** پیام در دیتابیس دارد.`,
+			{ parse_mode: 'Markdown' },
+		);
+	} catch (error) {
+		await ctx.reply('❌ خطا در دریافت آمار.');
+	}
+});
+
+bot.command('users', async (ctx) => {
+	try {
+		const topUsers = await getTopUsers();
+		const authorized = await getAuthorizedUsersList();
+		const ignored = await getIgnoredUsersList();
+
+		if (topUsers.length === 0) return ctx.reply('دیتابیس پیام‌ها خالی است.');
+
+		let text = '👥 **تابلوی وضعیت کاربران (Top 20):**\n\n';
+
+		for (const u of topUsers) {
+			let roles = [];
+			// چون user_id در messages نداریم، مطابقت را بر اساس نام انجام می‌دهیم
+			if (authorized.some((a) => a.name === u.sender_name))
+				roles.push('✅ مجاز');
+			if (ignored.some((ig) => ig.name === u.sender_name))
+				roles.push('🚫 ایگنور');
+
+			const roleStr = roles.length > 0 ? ` [${roles.join(', ')}]` : '';
+			text += `🔸 ${u.sender_name}: ${u.msg_count} پیام${roleStr}\n`;
+		}
+
+		await ctx.reply(text, { parse_mode: 'Markdown' });
+	} catch (error) {
+		console.error('Users command error:', error);
+		await ctx.reply('❌ خطا در پردازش لیست کاربران.');
+	}
+});
 
 // ==========================================
 // دستورات مدیر کل

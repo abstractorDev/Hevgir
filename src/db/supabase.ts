@@ -91,3 +91,14 @@ export async function getUserMessageCount(senderName: string): Promise<number> {
 	if (error) throw new Error(`Count failed: ${error.message}`);
 	return count || 0;
 }
+
+/**
+ * دریافت لیست کاربرانی که بیشترین پیام را در گروه داشته‌اند
+ */
+export async function getTopUsers(): Promise<
+	{ sender_name: string; msg_count: number }[]
+> {
+	const { data, error } = await supabase.from('group_user_stats').select('*');
+	if (error) throw new Error(`Fetch top users failed: ${error.message}`);
+	return data || [];
+}
