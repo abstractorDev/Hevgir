@@ -29,7 +29,6 @@ async function bootstrap() {
 				command: 'unignore',
 				description: '[ادمین] لغو عدم ثبت کاربر (ریپلای)',
 			},
-			{ command: 'del', description: '[ادمین] حذف پیام از دیتابیس (ریپلای)' },
 			{
 				command: 'stats',
 				description: '[ادمین] مشاهده تعداد پیام‌های کاربر (ریپلای)',
@@ -37,6 +36,11 @@ async function bootstrap() {
 			{ command: 'start', description: 'معرفی ربات' },
 			{ command: 'help', description: 'راهنمای تمام دستورات' },
 			{ command: 'users', description: 'وضعیت و آمار پیام‌های کاربران' },
+			{ command: 'del', description: '[ادمین] حذف پیام از دیتابیس (ریپلای)' },
+			{
+				command: 'delelte',
+				description: '[ادمین] حذف N پیام آخر (مثال: /delete 30)',
+			},
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {

@@ -102,3 +102,37 @@ export async function getTopUsers(): Promise<
 	if (error) throw new Error(`Fetch top users failed: ${error.message}`);
 	return data || [];
 }
+
+/**
+ * حذف گروهی آخرین پیام‌های یک گروه از دیتابیس
+ */
+export async function deleteRecentMessages(
+	chatId: number,
+	count: number,
+): Promise<number> {
+	// ۱. پیدا کردن آیدی N پیام آخر
+	const { data, error: fetchError } = await supabase
+		.from('messages')
+		.select('message_id')
+		.eq('chat_id', chatId)
+		.order('timestamp', { ascending: false })
+		.limit(count);
+
+	if (fetchError)
+		throw new Error(`Fetch for delete failed: ${fetchError.message}`);
+	if (!data || data.length === 0) return 0;
+
+	const idsToDelete = data.map((m) => m.message_id);
+
+	// ۲. حذف پیام‌های پیدا شده
+	const { error: deleteError } = await supabase
+		.from('messages')
+		.delete()
+		.eq('chat_id', chatId)
+		.in('message_id', idsToDelete);
+
+	if (deleteError)
+		throw new Error(`Bulk delete failed: ${deleteError.message}`);
+
+	return idsToDelete.length;
+}

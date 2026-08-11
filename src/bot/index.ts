@@ -5,6 +5,7 @@ import {
 	saveMessage,
 	updateMessage,
 	deleteMessage,
+	deleteRecentMessages,
 	getUserMessageCount,
 	getTopUsers,
 } from '../db/supabase.js';
@@ -258,6 +259,36 @@ rootAdminOnly.command('del', async (ctx) => {
 	}
 });
 
+rootAdminOnly.command('delete', async (ctx) => {
+	// دریافت مقداری که بعد از دستور نوشته شده (مثلاً 30)
+	const arg = ctx.match;
+	const count = parseInt(arg, 10);
+
+	if (isNaN(count) || count <= 0) {
+		return ctx.reply('⚠️ لطفاً یک عدد معتبر وارد کنید. مثال: `/delete 30`', {
+			parse_mode: 'Markdown',
+		});
+	}
+
+	// محدودیت امنیتی برای جلوگیری از پاک شدن کل دیتابیس با یک اشتباه تایپی
+	if (count > 500) {
+		return ctx.reply(
+			'⚠️ برای امنیت داده‌ها، در هر بار اجرای این دستور حداکثر ۵۰۰ پیام قابل حذف است.',
+		);
+	}
+
+	try {
+		const deletedCount = await deleteRecentMessages(ctx.chat.id, count);
+		await ctx.reply(
+			`🗑️ تعداد **${deletedCount}** پیام اخیر با موفقیت از دیتابیس حذف شد.`,
+			{ parse_mode: 'Markdown' },
+		);
+	} catch (error) {
+		console.error('Bulk delete error:', error);
+		await ctx.reply('❌ خطا در حذف گروهی پیام‌ها.');
+	}
+});
+
 // ==========================================
 // دستورات عمومی و گارد وضعیت
 // ==========================================
@@ -284,6 +315,15 @@ authorizedUsersOnly.command('status', async (ctx) => {
 // هندلرهای ذخیره و آپدیت پیام
 // ==========================================
 bot.on('message:text', async (ctx) => {
+	// ۱. فیلتر فرستنده: اگر پیام توسط خود ربات (یا هر ربات دیگری) ارسال شده باشد
+	if (ctx.msg.from?.is_bot) return;
+
+	// ۲. فیلتر ریپلای: اگر این پیام در جواب (ریپلای) به یک ربات داده شده باشد
+	if (ctx.msg.reply_to_message?.from?.is_bot) return;
+
+	// ۳. فیلتر دستورات: اگر پیام یک کامند است (با / شروع می‌شود)
+	if (ctx.msg.text.startsWith('/')) return;
+
 	const isReading = await getIsReading();
 	if (!isReading) return;
 
