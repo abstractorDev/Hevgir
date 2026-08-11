@@ -6,6 +6,8 @@ dotenv.config();
 // if (!process.env.AI_API_KEY) throw new Error('CRITICAL: AI_API_KEY is missing');
 if (!process.env.GROQ_API_KEY)
 	throw new Error('CRITICAL: GROQ_API_KEY is missing');
+if (!process.env.GEMINI_API_KEY)
+	throw new Error('CRITICAL: GEMINI_API_KEY is missing');
 if (!process.env.OPENAI_API_KEY)
 	throw new Error('CRITICAL: OPENAI_API_KEY is missing');
 
@@ -29,7 +31,7 @@ export const config = {
 	ADMIN_ID: parseInt(process.env.ADMIN_ID, 10),
 	SUPABASE_URL: process.env.SUPABASE_URL,
 	SUPABASE_KEY: process.env.SUPABASE_KEY,
-	// AI_API_KEY: process.env.AI_API_KEY,
-	GROQ_API_KEY: process.env.GROQ_API_KEY,
+	// GROQ_API_KEY: process.env.GROQ_API_KEY,
 	OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+	GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };

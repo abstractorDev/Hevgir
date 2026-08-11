@@ -3,11 +3,11 @@ import { config } from '../config/env.js';
 import type { MessageRecord } from '../db/supabase.js';
 
 // کلاینت اول: برای کارهای سنگین و سریع (مرحله Map)
-const groq = new OpenAI({
-	apiKey: config.GROQ_API_KEY,
-	baseURL: 'https://api.groq.com/openai/v1',
+// کلاینت اول: مرحله Map با استفاده از Google Gemini
+const mapPhaseClient = new OpenAI({
+	apiKey: config.GEMINI_API_KEY,
+	baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
-
 // کلاینت دوم: برای استدلال عمیق و نتیجه‌گیری (مرحله Reduce)
 const openai = new OpenAI({
 	apiKey: config.OPENAI_API_KEY,
@@ -36,8 +36,8 @@ async function generateIntermediateSummary(
   `.trim();
 
 	try {
-		const response = await groq.chat.completions.create({
-			model: 'llama3-70b-8192',
+		const response = await mapPhaseClient.chat.completions.create({
+			model: 'gemini-1.5-flash',
 			messages: [
 				{ role: 'system', content: systemPrompt },
 				{ role: 'user', content: context },
