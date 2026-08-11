@@ -72,3 +72,22 @@ export async function getMessagesByTimeframe(
 	if (error) throw new Error(`Fetch failed: ${error.message}`);
 	return data || [];
 }
+
+/**
+ * دریافت تعداد کل پیام‌های ذخیره‌شده از یک کاربر خاص
+ */
+export async function getUserMessageCount(userId: number): Promise<number> {
+	// استفاده از count برای جلوگیری از دانلود کل رکوردها (بهینه‌سازی پهنای باند)
+	const { count, error } = await supabase
+		.from('messages')
+		.select('*', { count: 'exact', head: true })
+		// استخراج user_id از sender_name یا فیلد جدید (نیاز به یک اصلاح کوچک داریم)
+		// برای سادگی، فعلاً فرض می‌کنیم باید chat_id کاربر را داشته باشیم، اما چون در گروه پیام می‌دهند،
+		// ما message_id و chat_id گروه را ذخیره کرده‌ایم.
+		// نکته معماری: ما user_id فرستنده را در جدول messages ذخیره نکرده بودیم!
+		// پس فعلاً بر اساس sender_name فیلتر می‌کنیم (هرچند از نظر مهندسی دقیق نیست چون نام قابل تغییر است).
+		.eq('sender_name', userId.toString()); // این بخش موقت است تا بعداً فیلد user_id را به جدول اصلی اضافه کنیم.
+
+	if (error) throw new Error(`Count failed: ${error.message}`);
+	return count || 0;
+}

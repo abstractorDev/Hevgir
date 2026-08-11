@@ -64,3 +64,23 @@ export async function addAuthorizedUser(
 export async function removeAuthorizedUser(userId: number): Promise<void> {
 	await supabase.from('authorized_users').delete().match({ user_id: userId });
 }
+
+// ==========================================
+// بخش مدیریت لیست سیاه (Ignored Users)
+// ==========================================
+export async function isUserIgnored(userId: number): Promise<boolean> {
+	const { data, error } = await supabase
+		.from('ignored_users')
+		.select('user_id')
+		.eq('user_id', userId)
+		.single();
+	return data !== null;
+}
+
+export async function ignoreUser(userId: number, name: string): Promise<void> {
+	await supabase.from('ignored_users').upsert({ user_id: userId, name });
+}
+
+export async function unignoreUser(userId: number): Promise<void> {
+	await supabase.from('ignored_users').delete().match({ user_id: userId });
+}

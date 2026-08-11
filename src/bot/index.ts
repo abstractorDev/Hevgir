@@ -12,6 +12,9 @@ import {
 	addAuthorizedUser,
 	removeAuthorizedUser,
 	getAuthorizedUsersList,
+	isUserIgnored,
+	ignoreUser,
+	unignoreUser,
 } from './state.js';
 
 export const bot = new Bot(config.BOT_TOKEN);
@@ -105,6 +108,45 @@ rootAdminOnly.command('accesslist', async (ctx) => {
 });
 
 // ==========================================
+// دستورات جدید مدیر کل (Moderation)
+// ==========================================
+
+rootAdminOnly.command('ignore', async (ctx) => {
+	const target = ctx.msg.reply_to_message?.from;
+	if (!target) return ctx.reply('⚠️ ریپلای روی پیام کاربر الزامی است.');
+
+	await ignoreUser(target.id, target.first_name);
+	await ctx.reply(
+		`🚫 پیام‌های «${target.first_name}» دیگر توسط سیستم پردازش و ذخیره نخواهند شد.`,
+	);
+});
+
+rootAdminOnly.command('unignore', async (ctx) => {
+	const target = ctx.msg.reply_to_message?.from;
+	if (!target) return ctx.reply('⚠️ ریپلای روی پیام کاربر الزامی است.');
+
+	await unignoreUser(target.id);
+	await ctx.reply(`✅ خواندن پیام‌های «${target.first_name}» مجدداً فعال شد.`);
+});
+
+rootAdminOnly.command('del', async (ctx) => {
+	const targetMsg = ctx.msg.reply_to_message;
+	if (!targetMsg)
+		return ctx.reply(
+			'⚠️ ریپلای روی پیامی که باید از دیتابیس حذف شود الزامی است.',
+		);
+
+	try {
+		await deleteMessage(ctx.chat.id, targetMsg.message_id);
+		await ctx.reply(`🗑️ پیام مورد نظر با موفقیت از دیتابیس هوش مصنوعی حذف شد.`);
+	} catch (error) {
+		await ctx.reply(
+			`❌ خطا در حذف پیام: شاید این پیام در دیتابیس وجود نداشته باشد.`,
+		);
+	}
+});
+
+// ==========================================
 // دستورات عمومی و گارد وضعیت
 // ==========================================
 authorizedUsersOnly.command('pause', async (ctx) => {
@@ -164,6 +206,13 @@ bot.on('message:text', async (ctx) => {
 bot.on('edited_message:text', async (ctx) => {
 	const isReading = await getIsReading();
 	if (!isReading) return;
+
+	// گارد جدید: آیا کاربر در لیست سیاه است؟
+	const userId = ctx.msg.from?.id;
+	if (userId) {
+		const isIgnored = await isUserIgnored(userId);
+		if (isIgnored) return; // پیام نادیده گرفته می‌شود
+	}
 
 	const cleanText = stripEmojis(ctx.editedMessage.text);
 

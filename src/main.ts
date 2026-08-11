@@ -8,7 +8,28 @@ async function bootstrap() {
 
 	try {
 		await bot.api.setMyCommands([
-			// ... (دستوراتی که در مراحل قبل نوشتیم)
+			// --- دستورات عمومی ربات ---
+			{ command: 'pause', description: 'توقف خواندن و ذخیره پیام‌ها' },
+			{ command: 'resume', description: 'از سرگیری خواندن پیام‌ها' },
+			{ command: 'status', description: 'مشاهده وضعیت فعلی ربات' },
+
+			// --- دستورات مدیریت دسترسی (RBAC) ---
+			{ command: 'grant', description: '[ادمین] اعطای دسترسی (ریپلای)' },
+			{ command: 'revoke', description: '[ادمین] لغو دسترسی (ریپلای)' },
+			{ command: 'grantall', description: '[ادمین] باز کردن دسترسی برای همه' },
+			{ command: 'revokeall', description: '[ادمین] بستن دسترسی عمومی' },
+			{ command: 'accesslist', description: '[ادمین] مشاهده لیست افراد مجاز' },
+
+			// --- دستورات مدیریت داده‌ها (Moderation) ---
+			{
+				command: 'ignore',
+				description: '[ادمین] عدم ثبت پیام‌های کاربر (ریپلای)',
+			},
+			{
+				command: 'unignore',
+				description: '[ادمین] لغو عدم ثبت کاربر (ریپلای)',
+			},
+			{ command: 'del', description: '[ادمین] حذف پیام از دیتابیس (ریپلای)' },
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {
@@ -42,6 +63,7 @@ async function bootstrap() {
 			console.log(`✅ Health check server listening on 0.0.0.0:${port}`);
 		});
 
+	// راه‌اندازی سیستم زمان‌بندی (Cron)
 	startCronJobs();
 }
 
