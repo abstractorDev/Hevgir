@@ -1,3 +1,13 @@
+---
+title: Hevgir Bot
+emoji: ⚡
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Hevgir (هەڤگر) - Telegram Context Aggregator
 
 یک ربات تلگرامی با معماری ماژولار که پیام‌های یک گروه را رصد کرده، کانتکس و مفاهیم اصلی بحث را با استفاده از مدل‌های زبانی (LLM) تقطیر می‌کند و به‌صورت هفتگی/روزانه مقالات یا خلاصه‌های مرتبط را پیشنهاد می‌دهد.
