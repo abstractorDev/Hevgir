@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 import { config } from '../config/env.js';
 import { stripEmojis } from '../utils/text.js';
 import {
@@ -291,16 +291,14 @@ rootAdminOnly.command('delete', async (ctx) => {
 });
 
 rootAdminOnly.command('cleardb', async (ctx) => {
-	try {
-		await clearChatMessages(ctx.chat.id);
-		await ctx.reply(
-			'🧹 تمام پیام‌های تاریخچهٔ این گروه با موفقیت از دیتابیس حذف شدند.',
-			{ parse_mode: 'Markdown' },
-		);
-	} catch (error) {
-		console.error('Clear DB error:', error);
-		await ctx.reply('❌ خطا در پاکسازی دیتابیس.');
-	}
+	const confirmKeyboard = new InlineKeyboard()
+		.text('✅ بله، کاملاً مطمئنم', 'confirm_cleardb')
+		.text('❌ لغو عملیات', 'cancel_cleardb');
+
+	await ctx.reply(
+		'⚠️ **هشدار امنیتی**\n\nآیا مطمئن هستید که می‌خواهید **کل پیام‌های تاریخچه این گروه** را برای همیشه از دیتابیس پاک کنید؟ این عملیات غیرقابل بازگشت است.',
+		{ parse_mode: 'Markdown', reply_markup: confirmKeyboard },
+	);
 });
 
 // ==========================================
@@ -408,3 +406,52 @@ bot.on('edited_message:text', async (ctx) => {
 });
 
 bot.catch((err) => console.error('Global Error in bot:', err));
+
+// ==========================================
+// پردازش کلیک روی دکمه‌های شیشه‌ای (Callback Queries)
+// ==========================================
+
+bot.callbackQuery('confirm_cleardb', async (ctx) => {
+	// تایید امنیت: فقط مدیر کل می‌تواند دکمه را بزند
+	if (!isRootAdmin(ctx.from.id)) {
+		return ctx.answerCallbackQuery({
+			text: '⛔ شما دسترسی انجام این کار را ندارید.',
+			show_alert: true,
+		});
+	}
+
+	const chatId = ctx.chat?.id;
+	if (!chatId) return;
+
+	try {
+		// ۱. حذف از دیتابیس
+		await clearChatMessages(chatId);
+
+		// ۲. ویرایش پیام قبلی برای حذف دکمه‌ها و نمایش نتیجه
+		await ctx.editMessageText(
+			'🧹 تمام پیام‌های تاریخچهٔ این گروه با موفقیت از دیتابیس پاک شدند.',
+			{ parse_mode: 'Markdown' },
+		);
+
+		// ۳. بستن پاپ‌آپِ لودینگِ دکمه
+		await ctx.answerCallbackQuery({ text: 'دیتابیس پاکسازی شد.' });
+	} catch (error) {
+		console.error('Clear DB error:', error);
+		await ctx.answerCallbackQuery({
+			text: '❌ خطا در پاکسازی دیتابیس.',
+			show_alert: true,
+		});
+	}
+});
+
+bot.callbackQuery('cancel_cleardb', async (ctx) => {
+	if (!isRootAdmin(ctx.from.id)) {
+		return ctx.answerCallbackQuery({
+			text: '⛔ شما دسترسی ندارید.',
+			show_alert: true,
+		});
+	}
+
+	await ctx.editMessageText('❌ عملیات پاکسازی دیتابیس لغو شد.');
+	await ctx.answerCallbackQuery();
+});
