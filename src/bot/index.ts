@@ -81,19 +81,27 @@ bot.command('start', async (ctx) => {
 
 bot.command('help', async (ctx) => {
 	const helpText =
-		`📚 **راهنمای دستورات ربات:**\n\n` +
-		`**عمومی (همه کاربران):**\n` +
-		`🔹 /start - معرفی ربات\n` +
-		`🔹 /help - راهنمای دستورات\n` +
-		`🔹 /users - مشاهده وضعیت و آمار کاربران گروه\n` +
-		`🔹 /stats - آمار پیام‌ها (روی یک پیام ریپلای کنید یا خالی بفرستید)\n` +
-		`🔹 /status - مشاهده وضعیت فعلی موتور خوانش\n\n` +
-		`**کاربران مجاز:**\n` +
-		`🔹 /pause - توقف خواندن پیام‌ها\n` +
-		`🔹 /resume - از سرگیری خواندن پیام‌ها\n\n` +
-		`**مدیر سیستم:**\n` +
-		`🔹 /grant, /revoke, /grantall, /revokeall, /accesslist\n` +
-		`🔹 /ignore, /unignore, /del\n`;
+		`📚 **راهنمای جامع سیستم Hevgir (هەڤگر):**\n\n` +
+		`**🔹 دستورات عمومی (همه کاربران):**\n` +
+		`• /panel: \n (یا کلمه "پنل") - 🎛 باز کردن پنل مدیریت پویا\n` +
+		`• /users: \n - 👥 تابلوی وضعیت و آمار فعالیت کاربران (Top 20)\n` +
+		`• /stats: \n - 📊 آمار کل پیام‌های یک فرد (ریپلای کنید یا خالی بفرستید)\n` +
+		`• /status: \n (یا "وضعیت") - 🤖 وضعیت فعلی موتور خوانش هوش مصنوعی\n` +
+		`• /help: \n (یا "راهنما") - 📖 نمایش همین پیام\n\n` +
+		`--------------------\n` +
+		`**🔸 کاربران مجاز (Authorized):**\n` +
+		`• /pause: \n - ⏸ توقف پردازش و ثبت پیام‌های گروه\n` +
+		`• /resume: \n - ▶️ از سرگیری پردازش پیام‌ها\n\n` +
+		`--------------------\n` +
+		`**👑 مدیر کل (Root Admin):**\n` +
+		`• /grant و /revoke: \n - 🔑 مدیریت دسترسی افراد (با ریپلای)\n` +
+		`• /grantall و /revokeall: \n - 🌐 باز و بسته کردن دسترسی عمومی به ربات\n` +
+		`• /accesslist: \n - 📋 مشاهده لیست افرادی که دسترسی دارند\n` +
+		`• /ignore و /unignore: \n - 🚫 ورود/خروج کاربر به لیست سیاه (عدم ثبت پیام)\n` +
+		`• /del \n - 🗑 حذف یک پیام مشخص از دیتابیس (با ریپلای)\n` +
+		`• /delete N: \n - ✂️ حذف گروهی پیام‌های اخیر (مثال: \`/delete 30\`)\n` +
+		`• /cleardb: \n - 🧹 پاکسازی کامل تاریخچه (با تاییدیه دو مرحله‌ای)\n\n` +
+		`💡 **نکته:** برای دسترسی سریع‌تر، می‌توانید کلمات «پنل»، «راهنما» و «وضعیت» را بدون علامت اسلش (/) ارسال کنید.`;
 
 	await ctx.reply(helpText, { parse_mode: 'Markdown' });
 });
@@ -355,6 +363,84 @@ authorizedUsersOnly.command('resume', async (ctx) => {
 });
 
 authorizedUsersOnly.command('status', async (ctx) => {
+	const isReading = await getIsReading();
+	await ctx.reply(`وضعیت فعلی ربات: ${isReading ? '🟢 فعال' : '🔴 متوقف'}`);
+});
+
+// ==========================================
+// توابع اجرایی (Handlers)
+// ==========================================
+
+const showPanelHandler = async (ctx: any) => {
+	const userId = ctx.from?.id;
+	if (!userId) return;
+
+	const keyboard = new InlineKeyboard()
+		.text('📊 وضعیت کاربران', 'panel_users')
+		.text('🤖 وضعیت ربات', 'panel_status')
+		.row();
+
+	const isAuth = await checkAuthorization(userId);
+	if (isAuth) {
+		keyboard
+			.text('▶️ شروع خوانش', 'panel_resume')
+			.text('⏸ توقف خوانش', 'panel_pause')
+			.row();
+	}
+
+	if (isRootAdmin(userId)) {
+		keyboard.text('🧹 پاکسازی کل دیتابیس', 'panel_cleardb').row();
+	}
+
+	await ctx.reply(
+		'🎛 **پنل مدیریت سیستم Hevgir**\n\nلطفاً یک گزینه را انتخاب کنید:',
+		{
+			parse_mode: 'Markdown',
+			reply_markup: keyboard,
+		},
+	);
+};
+
+const showHelpHandler = async (ctx: any) => {
+	const helpText =
+		`📚 **راهنمای جامع سیستم Hevgir (هەڤگر):**\n\n` +
+		`**🔹 دستورات عمومی (همه کاربران):**\n` +
+		`• /panel: \n (یا کلمه "پنل") - 🎛 باز کردن پنل مدیریت پویا\n` +
+		`• /users: \n - 👥 تابلوی وضعیت و آمار فعالیت کاربران (Top 20)\n` +
+		`• /stats: \n - 📊 آمار کل پیام‌های یک فرد (ریپلای کنید یا خالی بفرستید)\n` +
+		`• /status: \n (یا "وضعیت") - 🤖 وضعیت فعلی موتور خوانش هوش مصنوعی\n` +
+		`• /help: \n (یا "راهنما") - 📖 نمایش همین پیام\n\n` +
+		`--------------------\n` +
+		`**🔸 کاربران مجاز (Authorized):**\n` +
+		`• /pause: \n - ⏸ توقف پردازش و ثبت پیام‌های گروه\n` +
+		`• /resume: \n - ▶️ از سرگیری پردازش پیام‌ها\n\n` +
+		`--------------------\n` +
+		`**👑 مدیر کل (Root Admin):**\n` +
+		`• /grant و /revoke: \n - 🔑 مدیریت دسترسی افراد (با ریپلای)\n` +
+		`• /grantall و /revokeall: \n - 🌐 باز و بسته کردن دسترسی عمومی به ربات\n` +
+		`• /accesslist: \n - 📋 مشاهده لیست افرادی که دسترسی دارند\n` +
+		`• /ignore و /unignore: \n - 🚫 ورود/خروج کاربر به لیست سیاه (عدم ثبت پیام)\n` +
+		`• /del \n - 🗑 حذف یک پیام مشخص از دیتابیس (با ریپلای)\n` +
+		`• /delete N: \n - ✂️ حذف گروهی پیام‌های اخیر (مثال: \`/delete 30\`)\n` +
+		`• /cleardb: \n - 🧹 پاکسازی کامل تاریخچه (با تاییدیه دو مرحله‌ای)\n\n` +
+		`💡 **نکته:** برای دسترسی سریع‌تر، می‌توانید کلمات «پنل»، «راهنما» و «وضعیت» را بدون علامت اسلش (/) ارسال کنید.`;
+
+	await ctx.reply(helpText, { parse_mode: 'Markdown' });
+};
+
+// ==========================================
+// مسیردهی دستورات (Routing)
+// ==========================================
+
+// اتصال به دستورات استاندارد
+bot.command('panel', showPanelHandler);
+bot.command('help', showHelpHandler);
+
+// اتصال به کلمات متنی (با استفاده از Regex برای تطابق دقیق)
+// علامت ^ یعنی ابتدای پیام، علامت $ یعنی انتهای پیام
+bot.hears(/^پنل$/i, showPanelHandler);
+bot.hears(/^(راهنما|help)$/i, showHelpHandler);
+bot.hears(/^وضعیت$/i, async (ctx) => {
 	const isReading = await getIsReading();
 	await ctx.reply(`وضعیت فعلی ربات: ${isReading ? '🟢 فعال' : '🔴 متوقف'}`);
 });
