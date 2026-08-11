@@ -1,7 +1,12 @@
 import { Bot } from 'grammy';
 import { config } from '../config/env.js';
 import { stripEmojis } from '../utils/text.js';
-import { saveMessage, updateMessage, deleteMessage } from '../db/supabase.js';
+import {
+	saveMessage,
+	updateMessage,
+	deleteMessage,
+	getUserMessageCount,
+} from '../db/supabase.js';
 import type { MessageRecord } from '../db/supabase.js';
 import {
 	getIsReading,
@@ -105,6 +110,27 @@ rootAdminOnly.command('accesslist', async (ctx) => {
 	}
 
 	await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+rootAdminOnly.command('stats', async (ctx) => {
+	const target = ctx.msg.reply_to_message?.from;
+	if (!target)
+		return ctx.reply('⚠️ برای دیدن آمار، ریپلای روی پیام کاربر الزامی است.');
+
+	// ساخت نام کاربر دقیقاً با همان فرمتی که در دیتابیس ذخیره می‌شود
+	const senderName = target.last_name
+		? `${target.first_name} ${target.last_name}`
+		: target.first_name || 'Unknown';
+
+	try {
+		const count = await getUserMessageCount(senderName);
+		await ctx.reply(
+			`📊 کاربر «${senderName}» تا کنون **${count}** پیام در دیتابیس دارد.`,
+			{ parse_mode: 'Markdown' },
+		);
+	} catch (error) {
+		await ctx.reply('❌ خطا در دریافت آمار از پایگاه داده.');
+	}
 });
 
 // ==========================================
