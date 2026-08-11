@@ -4,6 +4,7 @@ import { stripEmojis } from '../utils/text.js';
 import {
 	saveMessage,
 	updateMessage,
+	clearChatMessages,
 	deleteMessage,
 	deleteRecentMessages,
 	getUserMessageCount,
@@ -286,6 +287,19 @@ rootAdminOnly.command('delete', async (ctx) => {
 	} catch (error) {
 		console.error('Bulk delete error:', error);
 		await ctx.reply('❌ خطا در حذف گروهی پیام‌ها.');
+	}
+});
+
+rootAdminOnly.command('cleardb', async (ctx) => {
+	try {
+		await clearChatMessages(ctx.chat.id);
+		await ctx.reply(
+			'🧹 تمام پیام‌های تاریخچهٔ این گروه با موفقیت از دیتابیس حذف شدند.',
+			{ parse_mode: 'Markdown' },
+		);
+	} catch (error) {
+		console.error('Clear DB error:', error);
+		await ctx.reply('❌ خطا در پاکسازی دیتابیس.');
 	}
 });
 

@@ -136,3 +136,15 @@ export async function deleteRecentMessages(
 
 	return idsToDelete.length;
 }
+
+/**
+ * حذف کامل تمام پیام‌های یک گروه از دیتابیس
+ */
+export async function clearChatMessages(chatId: number): Promise<void> {
+	const { error } = await supabase
+		.from('messages')
+		.delete()
+		.eq('chat_id', chatId);
+
+	if (error) throw new Error(`Clear DB failed: ${error.message}`);
+}

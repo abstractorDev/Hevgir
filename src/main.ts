@@ -41,6 +41,7 @@ async function bootstrap() {
 				command: 'delelte',
 				description: '[ادمین] حذف N پیام آخر (مثال: /delete 30)',
 			},
+			{ command: 'cleardb', description: '[ادمین] حذف کامل دیتابیس این گروه' },
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {
