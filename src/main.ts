@@ -38,10 +38,11 @@ async function bootstrap() {
 			{ command: 'users', description: 'وضعیت و آمار پیام‌های کاربران' },
 			{ command: 'del', description: '[ادمین] حذف پیام از دیتابیس (ریپلای)' },
 			{
-				command: 'delelte',
+				command: 'delete',
 				description: '[ادمین] حذف N پیام آخر (مثال: /delete 30)',
 			},
 			{ command: 'cleardb', description: '[ادمین] حذف کامل دیتابیس این گروه' },
+			{ command: 'panel', description: '🎛 باز کردن پنل مدیریت (پیشنهادی)' },
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {

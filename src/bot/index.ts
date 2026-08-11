@@ -98,6 +98,42 @@ bot.command('help', async (ctx) => {
 	await ctx.reply(helpText, { parse_mode: 'Markdown' });
 });
 
+// دقت کنید که checkAuthorization و isRootAdmin باید در این محدوده قابل دسترسی باشند
+bot.command('panel', async (ctx) => {
+	const userId = ctx.from?.id;
+	if (!userId) return;
+
+	const keyboard = new InlineKeyboard();
+
+	// ۱. دکمه‌های عمومی (برای همه)
+	keyboard
+		.text('📊 وضعیت کاربران', 'panel_users')
+		.text('🤖 وضعیت ربات', 'panel_status')
+		.row();
+
+	// ۲. دکمه‌های کاربران مجاز (Authorized)
+	const isAuth = await checkAuthorization(userId);
+	if (isAuth) {
+		keyboard
+			.text('▶️ شروع خوانش', 'panel_resume')
+			.text('⏸ توقف خوانش', 'panel_pause')
+			.row();
+	}
+
+	// ۳. دکمه‌های مدیر کل (Root Admin)
+	if (isRootAdmin(userId)) {
+		keyboard.text('🧹 پاکسازی کل دیتابیس', 'panel_cleardb').row();
+	}
+
+	await ctx.reply(
+		'🎛 **پنل مدیریت سیستم Hevgir**\n\nلطفاً یک گزینه را انتخاب کنید:',
+		{
+			parse_mode: 'Markdown',
+			reply_markup: keyboard,
+		},
+	);
+});
+
 bot.command('status', async (ctx) => {
 	const isReading = await getIsReading();
 	await ctx.reply(
@@ -453,5 +489,99 @@ bot.callbackQuery('cancel_cleardb', async (ctx) => {
 	}
 
 	await ctx.editMessageText('❌ عملیات پاکسازی دیتابیس لغو شد.');
+	await ctx.answerCallbackQuery();
+});
+
+// ==========================================
+// پردازش کلیک‌های پنل مدیریت
+// ==========================================
+
+bot.callbackQuery('panel_status', async (ctx) => {
+	const isReading = await getIsReading();
+	const text = isReading
+		? '🟢 ربات فعال و در حال پردازش پیام‌هاست.'
+		: '🔴 ربات متوقف است.';
+	// نمایش به صورت پاپ‌آپ روی صفحه گوشی/سیستم کاربر
+	await ctx.answerCallbackQuery({ text, show_alert: true });
+});
+
+bot.callbackQuery('panel_users', async (ctx) => {
+	try {
+		const topUsers = await getTopUsers();
+		if (topUsers.length === 0) {
+			return ctx.answerCallbackQuery({
+				text: 'دیتابیس پیام‌ها خالی است.',
+				show_alert: true,
+			});
+		}
+
+		const authorized = await getAuthorizedUsersList();
+		const ignored = await getIgnoredUsersList();
+		let text = '👥 **تابلوی وضعیت کاربران:**\n\n';
+
+		for (const u of topUsers) {
+			let roles = [];
+			if (authorized.some((a) => a.name === u.sender_name)) roles.push('✅');
+			if (ignored.some((ig) => ig.name === u.sender_name)) roles.push('🚫');
+			text += `🔸 ${u.sender_name}: ${u.msg_count} پیام ${roles.join('')}\n`;
+		}
+
+		// چون متن لیست طولانی است، آن را به عنوان یک پیام جدید می‌فرستیم
+		await ctx.reply(text, { parse_mode: 'Markdown' });
+		await ctx.answerCallbackQuery();
+	} catch (error) {
+		await ctx.answerCallbackQuery({
+			text: '❌ خطا در پردازش لیست',
+			show_alert: true,
+		});
+	}
+});
+
+bot.callbackQuery('panel_pause', async (ctx) => {
+	if (!(await checkAuthorization(ctx.from.id))) {
+		return ctx.answerCallbackQuery({
+			text: '⛔ دسترسی ندارید',
+			show_alert: true,
+		});
+	}
+	await setIsReading(false);
+	await ctx.answerCallbackQuery({
+		text: '⏸ خواندن پیام‌ها متوقف شد.',
+		show_alert: true,
+	});
+});
+
+bot.callbackQuery('panel_resume', async (ctx) => {
+	if (!(await checkAuthorization(ctx.from.id))) {
+		return ctx.answerCallbackQuery({
+			text: '⛔ دسترسی ندارید',
+			show_alert: true,
+		});
+	}
+	await setIsReading(true);
+	await ctx.answerCallbackQuery({
+		text: '▶️ خواندن پیام‌ها آغاز شد.',
+		show_alert: true,
+	});
+});
+
+bot.callbackQuery('panel_cleardb', async (ctx) => {
+	if (!isRootAdmin(ctx.from.id)) {
+		return ctx.answerCallbackQuery({
+			text: '⛔ فقط مدیر کل دسترسی دارد.',
+			show_alert: true,
+		});
+	}
+
+	// دقیقاً همان کیبوردی که در فاز قبلی ساختیم را اینجا فراخوانی می‌کنیم
+	const confirmKeyboard = new InlineKeyboard()
+		.text('✅ بله، کاملاً مطمئنم', 'confirm_cleardb')
+		.text('❌ لغو عملیات', 'cancel_cleardb');
+
+	// منوی فعلی را با منوی تاییدیه جایگزین می‌کنیم
+	await ctx.editMessageText(
+		'⚠️ **هشدار امنیتی**\n\nآیا مطمئن هستید که می‌خواهید کل پیام‌های این گروه را پاک کنید؟',
+		{ parse_mode: 'Markdown', reply_markup: confirmKeyboard },
+	);
 	await ctx.answerCallbackQuery();
 });
