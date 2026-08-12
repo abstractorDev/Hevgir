@@ -25,6 +25,8 @@ import {
 	isUserIgnored,
 	isUserInList,
 } from './state.js';
+import { runDailyAnalysisPipeline } from '../services/ai.js';
+import { getMessagesByTimeframe } from '../db/supabase.js';
 
 export const bot = new Bot(config.BOT_TOKEN);
 
@@ -343,6 +345,54 @@ rootAdminOnly.command('cleardb', async (ctx) => {
 		'⚠️ **هشدار امنیتی**\n\nآیا مطمئن هستید که می‌خواهید **کل پیام‌های تاریخچه این گروه** را برای همیشه از دیتابیس پاک کنید؟ این عملیات غیرقابل بازگشت است.',
 		{ parse_mode: 'Markdown', reply_markup: confirmKeyboard },
 	);
+});
+
+rootAdminOnly.command('testai', async (ctx) => {
+	await ctx.reply(
+		'🔄 در حال جمع‌آوری پیام‌های ۲۴ ساعت گذشته و اجرای معماری دوگانه هوش مصنوعی (Gemini + OpenAI)...',
+	);
+
+	try {
+		const nowUnix = Math.floor(Date.now() / 1000);
+		const yesterdayUnix = nowUnix - 24 * 60 * 60;
+
+		const messages = await getMessagesByTimeframe(yesterdayUnix, nowUnix);
+
+		if (messages.length === 0) {
+			return ctx.reply(
+				'ℹ️ پایگاه داده خالی است یا پیامی در ۲۴ ساعت گذشته یافت نشد.',
+			);
+		}
+
+		// فراخوانی مستقیم پایپ‌لاین تحلیل
+		const finalReport = await runDailyAnalysisPipeline(messages);
+
+		if (finalReport) {
+			try {
+				// تلاش برای ارسال با فرمت
+				await ctx.reply(`🧠 **نتیجه تست پایپ‌لاین:**\n\n${finalReport}`, {
+					parse_mode: 'Markdown',
+				});
+			} catch (parseError) {
+				// مکانیزم Fallback: اگر تلگرام خطا داد، متن را بدون فرمت بفرست
+				console.warn(
+					'⚠️ Telegram Markdown parser failed. Sending as plain text.',
+				);
+				await ctx.reply(
+					`🧠 نتیجه تست پایپ‌لاین (بدون فرمت):\n\n${finalReport}`,
+				);
+			}
+		} else {
+			await ctx.reply(
+				'❌ خروجی پایپ‌لاین نامعتبر (null) بود. لاگ‌های سرور را بررسی کنید.',
+			);
+		}
+	} catch (error) {
+		console.error('Test AI Error:', error);
+		await ctx.reply(
+			'❌ خطای سیستمی در اجرای تست. به احتمال زیاد مشکل از کلیدهای API یا اتصال اینترنت سرور است.',
+		);
+	}
 });
 
 // ==========================================

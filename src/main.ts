@@ -43,6 +43,7 @@ async function bootstrap() {
 			},
 			{ command: 'cleardb', description: '[ادمین] حذف کامل دیتابیس این گروه' },
 			{ command: 'panel', description: '🎛 باز کردن پنل مدیریت (پیشنهادی)' },
+			{ command: 'testai', description: 'تست‌کردن ai' },
 		]);
 		console.log('✅ Command menu injected to Telegram.');
 	} catch (error) {

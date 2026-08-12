@@ -3,13 +3,8 @@ import dotenv from 'dotenv';
 // خواندن فایل .env و انتقال آن به process.env
 dotenv.config();
 
-// if (!process.env.AI_API_KEY) throw new Error('CRITICAL: AI_API_KEY is missing');
-if (!process.env.GROQ_API_KEY)
-	throw new Error('CRITICAL: GROQ_API_KEY is missing');
 if (!process.env.GEMINI_API_KEY)
 	throw new Error('CRITICAL: GEMINI_API_KEY is missing');
-if (!process.env.OPENAI_API_KEY)
-	throw new Error('CRITICAL: OPENAI_API_KEY is missing');
 
 // اعتبارسنجی (Fail-Fast): اگر توکن نباشد، برنامه همان ابتدا متوقف می‌شود
 if (!process.env.BOT_TOKEN) {
