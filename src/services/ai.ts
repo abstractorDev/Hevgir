@@ -8,10 +8,6 @@ const mapPhaseClient = new OpenAI({
 	apiKey: config.GEMINI_API_KEY,
 	baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
-// کلاینت دوم: برای استدلال عمیق و نتیجه‌گیری (مرحله Reduce)
-const openai = new OpenAI({
-	apiKey: config.OPENAI_API_KEY,
-});
 
 // تابع کمکی برای ایجاد وقفه و جلوگیری از Rate Limit
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,8 +65,8 @@ async function generateFinalReportAndRecommendation(
   `.trim();
 
 	try {
-		const response = await openai.chat.completions.create({
-			model: 'gpt-4o-mini', // بسیار مقرون‌به‌صرفه و دقیق برای این حجم داده
+		const response = await mapPhaseClient.chat.completions.create({
+			model: 'gemini-3.6-flash', // اصلاح نام مدل به نسخه معتبر
 			messages: [
 				{ role: 'system', content: systemPrompt },
 				{ role: 'user', content: combinedSummaries },
@@ -79,7 +75,7 @@ async function generateFinalReportAndRecommendation(
 		});
 		return response.choices[0]?.message?.content || null;
 	} catch (error) {
-		console.error('[-] OpenAI Reduce Error:', error);
+		console.error('[-] Gemini Reduce Error:', error);
 		return null;
 	}
 }
@@ -119,7 +115,7 @@ export async function runDailyAnalysisPipeline(
 		throw new Error('Map phase failed to generate any summaries.');
 	}
 
-	console.log(`[AI Pipeline] Starting REDUCE phase with OpenAI...`);
+	console.log(`[AI Pipeline] Starting REDUCE phase with Gemini Flash...`);
 	// ارسال تمام خلاصه‌های میانی به OpenAI برای نتیجه‌گیری و پیشنهاد
 	const finalReport = await generateFinalReportAndRecommendation(
 		intermediateSummaries,
