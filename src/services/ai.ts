@@ -37,7 +37,7 @@ async function generateIntermediateSummary(
 
 	try {
 		const response = await mapPhaseClient.chat.completions.create({
-			model: 'gemini-1.5-flash',
+			model: 'gemini-3.6-flash', // تغییر به مدل استاندارد و به‌روز
 			messages: [
 				{ role: 'system', content: systemPrompt },
 				{ role: 'user', content: context },
@@ -46,7 +46,7 @@ async function generateIntermediateSummary(
 		});
 		return response.choices[0]?.message?.content || null;
 	} catch (error) {
-		console.error('[-] Groq Map Error:', error);
+		console.error('[-] Gemini Map Error:', error); // اصلاح متن لاگ
 		return null;
 	}
 }
