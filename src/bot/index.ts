@@ -365,22 +365,40 @@ rootAdminOnly.command('testai', async (ctx) => {
 		}
 
 		// فراخوانی مستقیم پایپ‌لاین تحلیل
+		// فراخوانی مستقیم پایپ‌لاین تحلیل
 		const finalReport = await runDailyAnalysisPipeline(messages);
 
 		if (finalReport) {
-			try {
-				// تلاش برای ارسال با فرمت
-				await ctx.reply(`🧠 **نتیجه تست پایپ‌لاین:**\n\n${finalReport}`, {
-					parse_mode: 'Markdown',
-				});
-			} catch (parseError) {
-				// مکانیزم Fallback: اگر تلگرام خطا داد، متن را بدون فرمت بفرست
-				console.warn(
-					'⚠️ Telegram Markdown parser failed. Sending as plain text.',
-				);
-				await ctx.reply(
-					`🧠 نتیجه تست پایپ‌لاین (بدون فرمت):\n\n${finalReport}`,
-				);
+			// محدودیت امن تلگرام برای هر پیام را ۴۰۰۰ کاراکتر در نظر می‌گیریم
+			const CHUNK_SIZE = 4000;
+			const chunks: string[] = [];
+
+			// خرد کردن متن طولانی به قطعات کوچکتر
+			for (let i = 0; i < finalReport.length; i += CHUNK_SIZE) {
+				chunks.push(finalReport.substring(i, i + CHUNK_SIZE));
+			}
+
+			// ارسال قطعات به ترتیب
+			for (let i = 0; i < chunks.length; i++) {
+				const isFirstChunk = i === 0;
+				const formattedText = isFirstChunk
+					? `🧠 **نتیجه تست پایپ‌لاین (بخش ${i + 1}):**\n\n${chunks[i]}`
+					: `**(ادامه گزارش - بخش ${i + 1}):**\n\n${chunks[i]}`;
+
+				try {
+					// تلاش برای ارسال با فرمت
+					await ctx.reply(formattedText, { parse_mode: 'Markdown' });
+				} catch (parseError) {
+					// اگر مارک‌داون به دلیل برش در وسط یک کلمه کلیدی خراب شد، به متن خام سوییچ کن
+					console.warn(
+						`⚠️ Telegram Markdown parser failed for chunk ${i + 1}. Sending as plain text.`,
+					);
+					const plainText = isFirstChunk
+						? `🧠 نتیجه تست پایپ‌لاین (بدون فرمت - بخش ${i + 1}):\n\n${chunks[i]}`
+						: `(ادامه گزارش بدون فرمت - بخش ${i + 1}):\n\n${chunks[i]}`;
+
+					await ctx.reply(plainText);
+				}
 			}
 		} else {
 			await ctx.reply(
