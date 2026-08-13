@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, GrammyError, HttpError, InlineKeyboard } from 'grammy';
 import { config } from '../config/env.js';
 import { stripEmojis } from '../utils/text.js';
 import {
@@ -526,7 +526,11 @@ bot.on('message:text', async (ctx) => {
 	// ۳. فیلتر دستورات: اگر پیام یک کامند است (با / شروع می‌شود)
 	if (ctx.msg.text.startsWith('/')) return;
 
-	const isReading = await getIsReading();
+	// اضافه کردن .catch() برای جلوگیری از کرش هنگام تایم‌اوت شبکه
+	const isReading = await getIsReading().catch((err) => {
+		console.error('[-] DB Timeout in getIsReading:', err.message);
+		return false; // در صورت قطعی شبکه، فرض می‌کنیم ربات خاموش است
+	});
 	if (!isReading) return;
 
 	const cleanText = stripEmojis(ctx.msg.text);
@@ -738,4 +742,46 @@ bot.callbackQuery('panel_cleardb', async (ctx) => {
 		{ parse_mode: 'Markdown', reply_markup: confirmKeyboard },
 	);
 	await ctx.answerCallbackQuery();
+});
+
+// ==========================================
+// Global Error Handler & Alerting System
+// ==========================================
+bot.catch(async (err) => {
+	const ctx = err.ctx;
+	const e = err.error;
+
+	// ۱. ثبت در لاگ سرور
+	console.error(
+		`[Global Error] Error while handling update ${ctx.update.update_id}:`,
+	);
+
+	let errorSummary = '';
+	if (e instanceof GrammyError) {
+		console.error('Error in request:', e.description);
+		errorSummary = `Telegram API Error: ${e.description}`;
+	} else if (e instanceof HttpError) {
+		console.error('Could not contact Telegram:', e);
+		errorSummary = `Network/Connectivity Error: ${e.message}`;
+	} else {
+		console.error('Unknown or Database Error:', e);
+		// استخراج پیام خطای دیتابیس (مثل تایم‌اوت)
+		errorSummary = `Internal System Error: ${e instanceof Error ? e.message : String(e)}`;
+	}
+
+	// ۲. ارسال آلرت به پی‌وی ادمین
+	try {
+		const alertMessage =
+			`🚨 **هشدار بحرانی سیستم (Hevgir)**\n\n` +
+			`یک خطای کنترل‌نشده در سرور رخ داده است. لطفاً در صورت نیاز لاگ‌های سرور را بررسی کنید.\n\n` +
+			`**جزئیات خطا:**\n\`${errorSummary}\``;
+
+		await ctx.api.sendMessage(config.ADMIN_ID, alertMessage, {
+			parse_mode: 'Markdown',
+		});
+	} catch (notifyError) {
+		// اگر ارسال پیام به ادمین هم شکست خورد (مثلاً ادمین ربات را بلاک کرده باشد)،
+		// نباید اجازه دهیم سیستم کرش کند. فقط لاگ می‌کنیم.
+		console.error('Failed to send error alert to Admin:', notifyError);
+	}
 });

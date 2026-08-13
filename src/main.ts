@@ -67,6 +67,12 @@ async function bootstrap() {
 		console.error('[-] Failed to set command menu:', error);
 	}
 
+	bot.catch((err) => {
+		console.error(
+			`⚠️ Unhandled error in grammY middleware for update ${err.ctx.update.update_id}:`,
+		);
+		console.error(err.error);
+	});
 	// روشن کردن ربات
 	bot.start({
 		onStart: async (botInfo) => {
