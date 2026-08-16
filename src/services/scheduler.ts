@@ -4,12 +4,37 @@ import { runDailyAnalysisPipeline } from './ai.js';
 import { bot } from '../bot/index.js';
 import { config } from '../config/env.js';
 
+/**
+ * تابع کمکی برای شکستن ایمن پیام‌های طولانی بر اساس پاراگراف
+ * تا فرمت‌بندی Markdown تلگرام دچار خطا نشود.
+ */
+async function sendLongMessage(chatId: string | number, text: string) {
+	const MAX_LENGTH = 4000;
+	let currentChunk = '';
+
+	const paragraphs = text.split('\n\n');
+
+	for (const paragraph of paragraphs) {
+		if (currentChunk.length + paragraph.length + 2 > MAX_LENGTH) {
+			await bot.api.sendMessage(chatId, currentChunk.trim(), {
+				parse_mode: 'Markdown',
+			});
+			currentChunk = paragraph + '\n\n';
+		} else {
+			currentChunk += paragraph + '\n\n';
+		}
+	}
+
+	if (currentChunk.trim().length > 0) {
+		await bot.api.sendMessage(chatId, currentChunk.trim(), {
+			parse_mode: 'Markdown',
+		});
+	}
+}
+
 export function startCronJobs() {
-	// اجرای کرون‌جاب هر روز ساعت ۲۳:۵۹
-	// برای تست می‌توانید از "* * * * *" (هر دقیقه) استفاده کنید
-	// cron.schedule('59 23 * * *', async () => {
 	cron.schedule('59 23 * * *', async () => {
-		console.log('⏳ Starting daily AI summarization...');
+		console.log('⏳ Starting daily Map-Reduce AI summarization...');
 
 		try {
 			const nowUnix = Math.floor(Date.now() / 1000);
@@ -17,24 +42,24 @@ export function startCronJobs() {
 
 			const messages = await getMessagesByTimeframe(yesterdayUnix, nowUnix);
 
-			if (messages.length === 0) {
-				console.log('ℹ️ No messages to summarize today.');
-				return;
-			}
+			if (messages.length === 0) return;
 
+			// استخراج آیدی گروه از اولین پیام موجود در دیتابیس
+			const groupId = messages[0].chat_id;
+
+			// ۱. ارسال پیام شروع پردازش به گروه (به جای پی‌وی)
 			await bot.api.sendMessage(
-				config.ADMIN_ID,
+				groupId,
 				`🔄 آغاز پردازش عمیق ${messages.length} پیام با معماری Hybrid AI...`,
 			);
 
 			const finalReport = await runDailyAnalysisPipeline(messages);
 
 			if (finalReport) {
-				// به دلیل طولانی بودن احتمالی گزارش، آن را ارسال می‌کنیم
-				await bot.api.sendMessage(
+				// ۲. ارسال گزارش نهایی به پی‌وی ادمین با استفاده از الگوریتم Chunking پاراگراف‌ها
+				await sendLongMessage(
 					config.ADMIN_ID,
 					`🧠 **تحلیل و پیشنهاد امروز:**\n\n${finalReport}`,
-					{ parse_mode: 'Markdown' },
 				);
 			}
 		} catch (error) {
@@ -45,6 +70,4 @@ export function startCronJobs() {
 			);
 		}
 	});
-
-	console.log('✅ Cron scheduler initialized.');
 }
