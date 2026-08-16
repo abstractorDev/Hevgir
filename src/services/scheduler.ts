@@ -62,6 +62,13 @@ export function startCronJobs() {
 					`🧠 **تحلیل و پیشنهاد امروز:**\n\n${finalReport}`,
 				);
 			}
+			if (finalReport) {
+				// ۲. ارسال گزارش نهایی به گروه (تغییر یافته از ADMIN_ID به groupId)
+				await sendLongMessage(
+					groupId,
+					`🧠 **تحلیل و پیشنهاد امروز:**\n\n${finalReport}`,
+				);
+			}
 		} catch (error) {
 			console.error('[-] Cron Job Error:', error);
 			await bot.api.sendMessage(
